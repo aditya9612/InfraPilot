@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
-import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import type { DocumentStats } from "../../types/document";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import {
@@ -12,7 +12,6 @@ import {
   Search,
   Eye,
   RefreshCcw,
-  CheckCircle,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -34,6 +33,8 @@ const ClientDocumentsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [projectName, setProjectName] = useState<string>("");
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
+  const [usersMap, setUsersMap] = useState<Record<string, string>>({});
 
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -132,29 +133,37 @@ const ClientDocumentsPage = () => {
         }
       }
 
+      const isItemDrawing = activeTab === "Drawings" || doc.type === "Drawing" || currentDoc.type === "Drawing";
+      const uploader = getUploaderName(currentDoc) || getUploaderName(doc);
+
       setSelectedPreview({
         ...currentDoc,
         name: currentDoc.drawing_name || currentDoc.title || currentDoc.name || "Preview",
         file_url: file_url,
-        remarks: (currentDoc.remarks !== undefined && currentDoc.remarks !== null) ? currentDoc.remarks : (doc.remarks || ""),
+        remarks: currentDoc.remarks !== undefined ? currentDoc.remarks : (doc.remarks !== undefined ? doc.remarks : null),
         uploaded_at: currentDoc.uploaded_at || currentDoc.date || doc.date,
         date: currentDoc.date || currentDoc.uploaded_at || doc.date,
         project_name: (currentDoc.project_name && currentDoc.project_name !== "—") ? currentDoc.project_name : (projectName || "General"),
-        uploaded_by: currentDoc.uploaded_by || currentDoc.created_by || currentDoc.user_name || doc.uploaded_by || "Site Engineer",
+        uploaded_by: uploader,
+        uploaded_by_name: uploader,
+        uploaded_by_user_id: currentDoc.uploaded_by_user_id || doc.uploaded_by_user_id,
         file_size: currentDoc.file_size,
         type: doc.type || (doc.is_folder ? "Folder" : "Drawing"),
-        isDrawing: doc.type === "Drawing" || (activeTab === "Drawings")
+        isDrawing: isItemDrawing
       });
     } catch (err: any) {
       console.error("View failed:", err);
+      const isItemDrawing = activeTab === "Drawings" || doc.type === "Drawing";
+      const uploader = getUploaderName(doc);
       setSelectedPreview({
         ...doc,
         name: doc.drawing_name || doc.title || doc.name || "Preview",
         project_name: (doc.project_name && doc.project_name !== "—") ? doc.project_name : (projectName || "General"),
-        uploaded_by: doc.uploaded_by || doc.created_by || doc.user_name || "Site Engineer",
-        remarks: doc.remarks || "",
+        uploaded_by: uploader,
+        uploaded_by_name: uploader,
+        remarks: doc.remarks !== undefined ? doc.remarks : null,
         file_url: doc.file_url,
-        isDrawing: doc.type === "Drawing" || (activeTab === "Drawings")
+        isDrawing: isItemDrawing
       });
     } finally {
       setFetchingDetail(false);
@@ -260,8 +269,45 @@ const ClientDocumentsPage = () => {
           }
         })
         .catch(() => { });
+
+      projectService.getProjectMembers(projectId)
+        .then(res => {
+          const membersList = Array.isArray(res) ? res : res?.items || res?.data || [];
+          setProjectMembers(membersList);
+        })
+        .catch(() => { });
     }
+
+    userService.getAllUsers(100, 0)
+      .then(res => {
+        const usersList = Array.isArray(res) ? res : res?.items || res?.data || res?.users || [];
+        const map: Record<string, string> = {};
+        usersList.forEach((u: any) => {
+          const id = u.id || u.user_id;
+          const name = u.full_name || u.name || (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : null) || u.username;
+          if (id && name) map[String(id)] = name;
+        });
+        setUsersMap(map);
+      })
+      .catch(() => { });
   }, [projectId]);
+
+  const getUploaderName = useCallback((docItem: any) => {
+    if (!docItem) return "Site Engineer";
+    if (docItem.uploaded_by_name) return docItem.uploaded_by_name;
+    if (docItem.user_name) return docItem.user_name;
+    const uid = docItem.uploaded_by_user_id || docItem.user_id;
+    if (uid) {
+      if (usersMap[String(uid)]) return usersMap[String(uid)];
+      const member = projectMembers.find(m => String(m.user_id || m.id) === String(uid));
+      if (member) return member.full_name || member.name || member.username;
+      return `User #${uid}`;
+    }
+    if (docItem.uploaded_by && typeof docItem.uploaded_by === 'string' && isNaN(Number(docItem.uploaded_by))) {
+      return docItem.uploaded_by;
+    }
+    return "Site Engineer";
+  }, [usersMap, projectMembers]);
 
   useEffect(() => {
     if (projectId) {
@@ -288,7 +334,9 @@ const ClientDocumentsPage = () => {
       approval_status: resolveApprovalStatus(d),
       approval_id: d.approval_id,
       is_folder: false,
-      remarks: d.remarks || "",
+      remarks: d.remarks !== undefined ? d.remarks : null,
+      uploaded_by_user_id: d.uploaded_by_user_id || d.user_id,
+      uploaded_by_name: d.uploaded_by_name || d.user_name,
       uploaded_by: d.uploaded_by || d.created_by || d.user_name || d.uploader_name || d.author || "Site Engineer"
     }));
 
@@ -310,7 +358,9 @@ const ClientDocumentsPage = () => {
           approval_status: resolveApprovalStatus(d),
           approval_id: null,
           is_folder: isFolder,
-          remarks: d.remarks || "",
+          remarks: d.remarks !== undefined ? d.remarks : null,
+          uploaded_by_user_id: d.uploaded_by_user_id || d.user_id,
+          uploaded_by_name: d.uploaded_by_name || d.user_name,
           uploaded_by: d.uploaded_by || d.created_by || d.user_name || d.uploader_name || d.author || "Site Engineer"
         };
       });
@@ -559,10 +609,11 @@ const ClientDocumentsPage = () => {
               {activeTab === "Documents" ? (
                 <>
                   <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter whitespace-nowrap">
+                    <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 font-inter whitespace-nowrap">
                       <th className="px-4 py-4">project_name</th>
                       <th className="px-4 py-4">title</th>
                       <th className="px-4 py-4">document_type</th>
+                      <th className="px-4 py-4">uploaded_by</th>
                       <th className="px-4 py-4">version</th>
                       <th className="px-4 py-4">status</th>
                       <th className="px-4 py-4">uploaded_at</th>
@@ -592,6 +643,7 @@ const ClientDocumentsPage = () => {
                             )}
                           </td>
                           <td className="px-4 py-3">{(drawing.is_folder || drawing.type === "Folder") ? "null" : (drawing.type !== undefined ? String(drawing.type) : "null")}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-700">{getUploaderName(drawing)}</td>
                           <td className="px-4 py-3">{drawing.version}</td>
                           <td className="px-4 py-3">
                             {(() => {
@@ -636,9 +688,9 @@ const ClientDocumentsPage = () => {
               ) : (
                 <>
                   <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                    <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 font-inter">
                       <th className="px-6 py-4 font-inter">Asset</th>
-                      <th className="px-6 py-4 font-inter">Engineering Asset</th>
+                      <th className="px-6 py-4 font-inter">Drawing Name</th>
                       <th className="px-6 py-4 font-inter">Version Profile</th>
                       <th className="px-4 py-4 font-inter">Approval Status</th>
                       <th className="px-6 py-4 font-inter">Vault Date</th>
@@ -878,9 +930,13 @@ const ClientDocumentsPage = () => {
           version: selectedPreview.version || "V1.0",
           isFolder: selectedPreview.is_folder || selectedPreview.type === "Folder",
           status: selectedPreview.approval_status || selectedPreview.status || "Approved",
-          uploaded_by: selectedPreview.uploaded_by || selectedPreview.created_by || selectedPreview.user_name || "Site Engineer",
-          remarks: selectedPreview.remarks && selectedPreview.remarks !== "No remarks" ? selectedPreview.remarks : (selectedPreview.remarks || "—"),
-          file_url: selectedPreview.previewUrl || buildFileUrl(selectedPreview.file_url || "")
+          uploaded_by: getUploaderName(selectedPreview) || selectedPreview.uploaded_by || "Site Engineer",
+          uploaded_by_name: getUploaderName(selectedPreview) || selectedPreview.uploaded_by_name,
+          remarks: selectedPreview.remarks !== undefined && selectedPreview.remarks !== null && String(selectedPreview.remarks).trim() !== ""
+            ? String(selectedPreview.remarks)
+            : (selectedPreview.remarks === null ? "null" : "No remarks"),
+          file_url: selectedPreview.previewUrl || buildFileUrl(selectedPreview.file_url || ""),
+          isDrawing: selectedPreview.isDrawing
         } : null}
         onDownload={handleDownload}
       />

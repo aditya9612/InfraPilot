@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import {
-  Bell, CheckCheck,
-  CheckCircle, AlertCircle, Info, Search, ExternalLink
+  Bell, CheckCheck, Eye,
+  CheckCircle, AlertCircle, Info, Search
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../services/api";
@@ -238,7 +238,7 @@ const ClientNotificationsPage = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification Center</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Notification Center</h1>
             <p className="text-slate-500 text-sm">View all your alerts, approvals, and system messages.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ const ClientNotificationsPage = () => {
           <div className="overflow-x-auto font-inter">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                <tr className="bg-slate-100/80 text-slate-900 font-black text-[11px] uppercase tracking-wider border-b border-slate-200">
                   <th className="px-6 py-4 w-12 text-center">
                     <input
                       type="checkbox"
@@ -413,9 +413,11 @@ const ClientNotificationsPage = () => {
                           <div className="flex items-center justify-end">
                             <button
                               onClick={() => handleViewDetails(notif)}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer border border-blue-200/60 shadow-xs"
+                              title="View Details"
                             >
-                              Details
+                              <Eye className="w-3.5 h-3.5" />
+                              View
                             </button>
                           </div>
                         </td>
@@ -502,24 +504,12 @@ const ClientNotificationsPage = () => {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    const notif = viewingNotif;
-                    setIsViewModalOpen(false);
-                    setViewingNotif(null);
-                    handleDirectNavigate(notif);
-                  }}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Open Page</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
+              <div className="pt-2">
                 <button
                   onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
+                  className="w-full py-3.5 bg-primary hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/25 hover:shadow-primary/40 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Dismiss
+                  Close
                 </button>
               </div>
             </div>

@@ -59,6 +59,10 @@ export const clientPaymentService = {
      */
     async getInvoiceSummary(params?: any): Promise<InvoiceSummary> {
         const p = parseParams(params);
+        if (!p.project_id || Number(p.project_id) <= 0) {
+            return { total_invoices: 0, total_amount: 0, amount_paid: 0, amount_pending: 0 };
+        }
+        p.project_id = Number(p.project_id);
         console.log("GET /api/v1/client-payments/invoice-summary", p);
         try {
             const response = await api.get("/client-payments/invoice-summary", { params: p });
@@ -77,6 +81,8 @@ export const clientPaymentService = {
      */
     async getPaymentHistory(params?: any): Promise<ClientPayment[]> {
         const p = parseParams(params);
+        if (p.limit && Number(p.limit) > 200) { p.limit = 200; }
+        if (p.project_id) { p.project_id = Number(p.project_id); }
         console.log("GET /api/v1/client-payments/history", p);
         try {
             const response = await api.get("/client-payments/history", { params: p });

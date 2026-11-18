@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
@@ -16,9 +16,11 @@ import {
   FileText,
   Mail,
   Briefcase,
-  Phone
+  Phone,
+  Download
 } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
+import { userService } from "../../services/userService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 // ─── Status Colors for Header Card & Actions ─────────────────────────────────
@@ -40,7 +42,10 @@ interface ApprovalRecord {
   entity_id: number | string;
   status: "Pending" | "Approved" | "Rejected" | "Hold" | string;
   requested_by: number | string;
+  requested_by_name?: string | null;
   approved_by?: number | string | null;
+  approved_by_name?: string | null;
+  reviewer_name?: string | null;
   remarks: string | null;
   date: string;
   raw_date?: string;
@@ -70,6 +75,8 @@ const ClientApprovalsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [usersMap, setUsersMap] = useState<Record<string, string>>({});
+  const [isExporting, setIsExporting] = useState(false);
 
   // Filter state for StatCards & Filter Bar
   const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject">("Select");
@@ -77,6 +84,43 @@ const ClientApprovalsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState("All");
 
   const { projectId } = useClientProjectId();
+
+  useEffect(() => {
+    userService.getAllUsers(100, 0)
+      .then(res => {
+        const usersList = Array.isArray(res) ? res : res?.items || res?.data || res?.users || [];
+        const map: Record<string, string> = {};
+        usersList.forEach((u: any) => {
+          const id = u.id || u.user_id;
+          const name = u.full_name || u.name || (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : null) || u.username;
+          if (id && name) map[String(id)] = name;
+        });
+        setUsersMap(map);
+      })
+      .catch(() => { });
+  }, []);
+
+  const getRequesterName = useCallback((record: ApprovalRecord | any) => {
+    if (!record) return "Site Engineer";
+    if (record.requested_by_name) return record.requested_by_name;
+    const req = record.requested_by;
+    if (req && usersMap[String(req)]) return usersMap[String(req)];
+    if (typeof req === 'string' && isNaN(Number(req))) return req;
+    if (Number(req) === 1) return "Admin";
+    return "Site Engineer";
+  }, [usersMap]);
+
+  const getApproverName = useCallback((record: ApprovalRecord | any) => {
+    if (!record) return "-";
+    if (record.approved_by_name) return record.approved_by_name;
+    if (record.reviewer_name) return record.reviewer_name;
+    const app = record.approved_by;
+    if (!app) return "-";
+    if (usersMap[String(app)]) return usersMap[String(app)];
+    if (typeof app === 'string' && isNaN(Number(app))) return app;
+    if (Number(app) === 1) return "Admin";
+    return String(app);
+  }, [usersMap]);
 
   const fetchApprovals = useCallback(async () => {
     try {
@@ -103,8 +147,11 @@ const ClientApprovalsPage = () => {
           entity_type: apr.entity_type || "GENERAL",
           entity_id: apr.entity_id || apr.id,
           status: apr.status || "Pending",
-          requested_by: apr.requested_by_name || apr.requested_by || "Site Engineer",
+          requested_by: apr.requested_by || "Site Engineer",
+          requested_by_name: apr.requested_by_name || null,
           approved_by: apr.approved_by || apr.reviewer_name || null,
+          approved_by_name: apr.approved_by_name || apr.reviewer_name || null,
+          reviewer_name: apr.reviewer_name || null,
           remarks: apr.remarks || "No technical narrative narrated",
           date: dateStr,
           raw_date: rawDate || dateStr
@@ -125,16 +172,59 @@ const ClientApprovalsPage = () => {
   }, [fetchApprovals, projectId]);
 
   const handleApprove = async (id: number | string) => {
-    const remarkInput = window.prompt("Enter approval remarks (optional):", "Approved by client");
-    if (remarkInput === null) return;
     const toastId = toast.loading("Processing approval...");
     try {
-      await approvalService.approve(id, remarkInput || "Approved by client");
+      await approvalService.approve(id, "Approved by client");
       toast.success("Work Authorization Approved", { id: toastId });
       fetchApprovals();
     } catch (err) {
       console.error("Failed to approve", err);
       toast.error("Failed to process approval.", { id: toastId });
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      toast.loading("Exporting approvals...", { id: "export-approvals" });
+      try {
+        const blob = await approvalService.exportApprovals();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `approvals_export_${new Date().toISOString().split("T")[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Approvals exported successfully", { id: "export-approvals" });
+      } catch (backendErr) {
+        // Fallback: FE CSV generation containing all displayed details
+        const headers = ["ID", "Work Authorization", "Entity ID", "Status", "Requested By", "Approved By", "Date", "Remarks"];
+        const rows = (filteredApprovals.length > 0 ? filteredApprovals : approvals).map(a => [
+          a.id,
+          `"${(a.entity_type || '').replace(/"/g, '""')}"`,
+          a.entity_id,
+          `"${(a.status || '').replace(/"/g, '""')}"`,
+          `"${getRequesterName(a).replace(/"/g, '""')}"`,
+          `"${getApproverName(a).replace(/"/g, '""')}"`,
+          `"${(a.date || '').replace(/"/g, '""')}"`,
+          `"${(a.remarks || '').replace(/"/g, '""')}"`
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `approvals_export_${new Date().toISOString().split("T")[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success("Approvals exported successfully", { id: "export-approvals" });
+      }
+    } catch (e) {
+      toast.error("Failed to export approvals", { id: "export-approvals" });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -183,6 +273,8 @@ const ClientApprovalsPage = () => {
           String(a.id).toLowerCase().includes(q) ||
           (a.entity_type || "").toLowerCase().includes(q) ||
           (a.remarks || "").toLowerCase().includes(q) ||
+          String(getRequesterName(a)).toLowerCase().includes(q) ||
+          String(getApproverName(a)).toLowerCase().includes(q) ||
           String(a.requested_by).toLowerCase().includes(q)
       );
     }
@@ -256,6 +348,15 @@ const ClientApprovalsPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              title="Export Approvals"
+            >
+              <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
+              Export
+            </button>
             <button
               onClick={fetchApprovals}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all cursor-pointer"
@@ -391,17 +492,20 @@ const ClientApprovalsPage = () => {
           <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 font-inter whitespace-nowrap">
                   <th className="px-6 py-4">Work Authorization</th>
                   <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Requested By</th>
+                  <th className="px-6 py-4">Approved By</th>
+                  <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Remarks</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 font-inter">
+              <tbody className="divide-y divide-slate-100 font-inter">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={7} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing Authorizations...</p>
                     </td>
@@ -412,7 +516,7 @@ const ClientApprovalsPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col font-inter">
                           <span className="text-sm font-bold text-slate-800 uppercase font-inter">{approval.entity_type}</span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Auth Log</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Ref #{approval.entity_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -421,7 +525,22 @@ const ClientApprovalsPage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-[10px] font-bold text-slate-400 truncate max-w-[350px] font-inter">
+                        <span className="text-xs font-semibold text-slate-700 font-inter whitespace-nowrap">
+                          {getRequesterName(approval)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-semibold text-slate-700 font-inter whitespace-nowrap">
+                          {getApproverName(approval)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-xs font-semibold text-slate-600 font-inter">
+                          {approval.date || "-"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-[10px] font-bold text-slate-400 truncate max-w-[250px] font-inter">
                           {approval.remarks || "No technical narrative narrated"}
                         </p>
                       </td>
@@ -461,7 +580,7 @@ const ClientApprovalsPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-inter">
+                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter">
                       No authorization requests discovered in the project vault.
                     </td>
                   </tr>
@@ -708,7 +827,25 @@ const ClientApprovalsPage = () => {
                       Requested By
                     </p>
                     <p className="text-sm font-bold text-blue-600 font-inter">
-                      {selectedApproval.requested_by || "Amit patil"}
+                      {getRequesterName(selectedApproval)}
+                    </p>
+                  </div>
+
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">
+                      Approved By
+                    </p>
+                    <p className="text-sm font-bold text-slate-800 font-inter">
+                      {getApproverName(selectedApproval)}
+                    </p>
+                  </div>
+
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">
+                      Request Date
+                    </p>
+                    <p className="text-sm font-bold text-slate-800 font-inter">
+                      {selectedApproval.date || "-"}
                     </p>
                   </div>
                   
@@ -724,16 +861,43 @@ const ClientApprovalsPage = () => {
               </div>
             </div>
 
-            {/* ── Bottom Dismiss Button ────────────────────── */}
-            <button
-              onClick={() => {
-                setIsViewModalOpen(false);
-                setSelectedApproval(null);
-              }}
-              className={`w-full py-4 ${statusColors[selectedApproval.status] || 'bg-[#009b5a]'} text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-95 font-inter cursor-pointer`}
-            >
-              Dismiss Authorization Insight
-            </button>
+            {/* ── Bottom Action Buttons ────────────────────── */}
+            {selectedApproval.status?.toLowerCase() === "pending" ? (
+              <div className="flex gap-3 font-inter">
+                <button
+                  onClick={() => {
+                    handleApprove(selectedApproval.id);
+                    setIsViewModalOpen(false);
+                    setSelectedApproval(null);
+                  }}
+                  className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer font-inter"
+                >
+                  <Check className="w-4 h-4" />
+                  Approve Request
+                </button>
+                <button
+                  onClick={() => {
+                    handleReject(selectedApproval.id);
+                    setIsViewModalOpen(false);
+                    setSelectedApproval(null);
+                  }}
+                  className="flex-1 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-600/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer font-inter"
+                >
+                  <X className="w-4 h-4" />
+                  Reject Request
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  setSelectedApproval(null);
+                }}
+                className={`w-full py-4 ${statusColors[selectedApproval.status] || 'bg-[#009b5a]'} text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-95 font-inter cursor-pointer`}
+              >
+                Dismiss Authorization Insight
+              </button>
+            )}
           </div>
         )}
       </Modal>

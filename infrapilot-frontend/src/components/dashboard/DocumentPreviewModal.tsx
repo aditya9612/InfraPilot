@@ -270,27 +270,27 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     <div className="flex gap-3 w-full sm:w-auto">
       <button
         onClick={onClose}
-        className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all"
+        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
       >
         Close
       </button>
     </div>
   );
 
-  const isDrawing = Boolean(
-    document.isDrawing ||
-    document.type === "Drawing" ||
-    document.document_type === "Drawing" ||
-    (document as any).drawing_name ||
-    (typeof document.type === "string" && document.type.toLowerCase() === "drawing") ||
-    (typeof document.document_type === "string" && document.document_type.toLowerCase() === "drawing")
-  );
+  const isDrawing = document.isDrawing !== undefined
+    ? Boolean(document.isDrawing)
+    : Boolean(
+        document.type === "Drawing" ||
+        document.document_type === "Drawing" ||
+        (typeof document.type === "string" && document.type.toLowerCase() === "drawing") ||
+        (typeof document.document_type === "string" && document.document_type.toLowerCase() === "drawing")
+      );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={document.isFolder ? "Folder Details" : (isDrawing ? "Drawings Preview" : "Document Preview")}
+      title={document.isFolder ? "Folder Details" : (isDrawing ? "Drawing Preview" : "Document Preview")}
       footer={footer}
       maxWidth="max-w-3xl"
     >
@@ -328,7 +328,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="File Type" value={document.type || document.document_type || (isDrawing ? "Drawing" : "Document")} />
               <InfoItem label="Linked Project" value={document.project || document.project_name || "General"} />
               <InfoItem label="Status" value={document.status || document.approval_status || "PENDING"} />
-              <InfoItem label="Remarks" value={document.remarks || "—"} />
+              <InfoItem label="Remarks" value={document.remarks !== undefined && document.remarks !== null && String(document.remarks).trim() !== "" ? String(document.remarks) : (document.remarks === null ? "null" : "No remarks")} />
               {!isDrawing && (
                 <InfoItem label="Uploaded By" value={document.uploaded_by_name || document.user_name || (typeof document.uploaded_by === 'string' && isNaN(Number(document.uploaded_by)) ? document.uploaded_by : null) || (document.uploaded_by_user_id || document.uploaded_by ? `User #${document.uploaded_by_user_id || document.uploaded_by}` : "NA")} />
               )}

@@ -300,7 +300,11 @@ export const paymentService = {
         try {
             const queryParams: any = { ...params };
             const pId = projectId || params?.project_id;
-            if (pId) queryParams.project_id = pId;
+            if (!pId || Number(pId) <= 0) {
+                // Backend requires project_id > 0; avoid sending request that yields 422
+                return null;
+            }
+            queryParams.project_id = Number(pId);
             const response = await api.get("client-payments/invoice-summary", {
                 params: queryParams
             });
@@ -545,7 +549,7 @@ export const paymentService = {
      */
     async getClientPaymentHistory(projectId?: number | string | any, params?: any): Promise<any[]> {
         try {
-            let queryParams: any = { limit: 1000 };
+            let queryParams: any = { limit: 50 };
             if (typeof projectId === "object" && projectId !== null) {
                 queryParams = { ...queryParams, ...projectId };
             } else if (projectId) {
@@ -558,7 +562,9 @@ export const paymentService = {
 
             let data: any = null;
             try {
-                const response = await api.get("client-payments/history", { params: queryParams });
+                if (queryParams.limit && Number(queryParams.limit) > 200) { queryParams.limit = 200; }
+            if (queryParams.project_id) { queryParams.project_id = Number(queryParams.project_id); }
+            const response = await api.get("client-payments/history", { params: queryParams });
                 data = response.data;
             } catch {
                 // Ignore and try fallback

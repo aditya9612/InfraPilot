@@ -8,9 +8,7 @@ import {
   Download,
   CheckCircle2,
   Clock,
-  AlertCircle,
   TrendingUp,
-  CreditCard,
   Calendar,
   X,
   Filter,
@@ -43,7 +41,7 @@ const STATUS_BADGE: Record<string, { bg: string; text: string; border: string }>
 
 const ClientInvoicesPage = () => {
   const { invoiceId } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { projectId } = useClientProjectId();
 
@@ -81,11 +79,21 @@ const ClientInvoicesPage = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [invData, projData, invSummary, paymentHistory] = await Promise.all([
+        const [invData, projData] = await Promise.all([
           financeService.getInvoices(200).catch(() => []),
           projectService.getProjects(100, 0).catch(() => []),
-          paymentService.getInvoiceSummary(projectId || undefined).catch(() => null),
-          paymentService.getClientPaymentHistory(projectId || undefined).catch(() => []),
+        ]);
+
+        const projList = Array.isArray(projData)
+          ? projData
+          : (projData as any)?.items || (projData as any)?.data || [];
+        setProjects(projList);
+
+        const targetPId = projectId ? Number(projectId) : (projList.length > 0 ? Number(projList[0].id) : undefined);
+
+        const [invSummary, paymentHistory] = await Promise.all([
+          targetPId ? paymentService.getInvoiceSummary(targetPId).catch(() => null) : Promise.resolve(null),
+          targetPId ? paymentService.getClientPaymentHistory(targetPId).catch(() => []) : Promise.resolve([]),
         ]);
 
         const paidInvIds = new Set<string>();
@@ -113,11 +121,6 @@ const ClientInvoicesPage = () => {
           return isPaid ? { ...inv, status: "paid" } : inv;
         });
         setInvoices(syncedInvoices);
-
-        const projList = Array.isArray(projData)
-          ? projData
-          : (projData as any)?.items || (projData as any)?.data || [];
-        setProjects(projList);
 
         if (invSummary) {
           setSummaryData(invSummary);
@@ -389,29 +392,27 @@ const ClientInvoicesPage = () => {
               title="Total Invoices"
               value={stats.totalCount.toString()}
               icon={<FileText className="w-5 h-5" />}
-              variant="default"
-              subtitle="All billed records"
+              sub="All billed records"
             />
             <StatCard
               title="Total Billed"
               value={formatCompactCurrency(stats.totalBilled)}
               icon={<TrendingUp className="w-5 h-5" />}
-              variant="default"
-              subtitle="Aggregate billing volume"
+              sub="Aggregate billing volume"
             />
             <StatCard
               title="Paid Amount"
               value={formatCompactCurrency(stats.totalPaid)}
               icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-              variant="success"
-              subtitle="Successfully settled"
+              accent="text-emerald-600"
+              sub="Successfully settled"
             />
             <StatCard
               title="Pending Amount"
               value={formatCompactCurrency(stats.totalPending)}
               icon={<Clock className="w-5 h-5 text-amber-600" />}
-              variant="warning"
-              subtitle="Awaiting payment"
+              accent="text-amber-600"
+              sub="Awaiting payment"
             />
           </div>
 

@@ -591,14 +591,7 @@ const SettingsPage = () => {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Joining Date</label>
-                                            {!isAdmin && (
-                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                                    Admin Only
-                                                </span>
-                                            )}
-                                        </div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Joining Date</label>
                                         <input
                                             type="date"
                                             name="joining_date"

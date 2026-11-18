@@ -219,7 +219,7 @@ const ClientReportsPage = () => {
       const dateParts = (reportDate || reportStartDate || "").split("-");
       const yr = Number(dateParts[0]) || new Date().getFullYear();
       const mo = Number(dateParts[1]) || (new Date().getMonth() + 1);
-      const [daily, weekly, material, issues, labour, projReport, projectDsrs] = await Promise.all([
+      const [daily, weekly, material, issues, labour, projReport, projectDsrs, rawIssuesList] = await Promise.all([
         // 1) Daily Report — GET /api/v1/reports/daily
         reportService.getDailyReport(pid, reportDate).catch(err => {
           console.error("Daily report fetch failed:", err);
@@ -253,6 +253,11 @@ const ClientReportsPage = () => {
         // 7) Project DSRs — GET /api/v1/dsr/project/{project_id}
         dsrService.getDsrByProject(Number(pid), { limit: 50 }).catch(err => {
           console.error("Project DSR fetch failed:", err);
+          return null;
+        }),
+        // 8) Raw Issues List — GET /api/v1/issues
+        issueService.getIssues({ project_id: Number(pid), limit: 1000 }).catch(err => {
+          console.error("Raw issues fetch failed:", err);
           return null;
         })
       ]);
@@ -329,24 +334,23 @@ const ClientReportsPage = () => {
       setDailyReport(resolvedDaily);
 
       // ── WEEKLY ─────────────────────────────────────────────────────────────
-      // API returns ProjectSummary: { total_activities, completed_activities, delayed_activities, on_track_activities, not_started_activities, completion_percentage }
-      const totalActivities = weekly?.total_activities || 0;
-      const completedActivities = weekly?.completed_activities || 0;
-      const delayedActivities = weekly?.delayed_activities || 0;
+      // API returns ProjectProgressSummary:
+      // { success: true, message: "...", project: {...}, summary: { total_activities, completed_activities, delayed_activities, overall_progress_percentage, ... } }
+      const summaryObj = (weekly as any)?.summary || weekly || {};
+      const totalActivities = Number(summaryObj.total_activities ?? (weekly as any)?.total_activities ?? 0);
+      const completedActivities = Number(summaryObj.completed_activities ?? (weekly as any)?.completed_activities ?? 0);
+      const delayedActivities = Number(summaryObj.delayed_activities ?? (weekly as any)?.delayed_activities ?? 0);
 
-      // Compute quantity-based completion (matches PDF: total_completed / planned_quantity)
+      // Directly map overall_progress_percentage from backend response
       let overallCompletion = 0;
-      try {
-        const activities = await workProgressService.listActivities(Number(pid));
-        const totalPlanned = activities.reduce((sum: number, a: any) => sum + (a.planned_quantity || 0), 0);
-        const totalCompleted = activities.reduce((sum: number, a: any) => sum + (a.total_completed || 0), 0);
-        overallCompletion = totalPlanned > 0
-          ? Math.round((totalCompleted / totalPlanned) * 10000) / 100
-          : (weekly?.completion_percentage || 0);
-      } catch {
-        overallCompletion = weekly?.completion_percentage !== undefined
-          ? weekly.completion_percentage
-          : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
+      if (summaryObj.overall_progress_percentage !== undefined && summaryObj.overall_progress_percentage !== null) {
+        overallCompletion = Math.round(Number(summaryObj.overall_progress_percentage));
+      } else if ((weekly as any)?.overall_progress_percentage !== undefined && (weekly as any)?.overall_progress_percentage !== null) {
+        overallCompletion = Math.round(Number((weekly as any).overall_progress_percentage));
+      } else if (summaryObj.completion_percentage !== undefined && summaryObj.completion_percentage !== null) {
+        overallCompletion = Math.round(Number(summaryObj.completion_percentage));
+      } else if (totalActivities > 0) {
+        overallCompletion = Math.round((completedActivities / totalActivities) * 100);
       }
 
       setWeeklyProgress({
@@ -388,24 +392,30 @@ const ClientReportsPage = () => {
       // ── ISSUES ─────────────────────────────────────────────────────────────
       // API returns flat summary: { open, closed, critical?, total? }
       // or may return { issues:[...], open_issues, closed_issues, ... }
-      const issueList: any[] = Array.isArray(issues)
+      const allIssuesItems: any[] = Array.isArray(rawIssuesList)
+        ? rawIssuesList
+        : (rawIssuesList?.items || rawIssuesList?.data?.items || rawIssuesList?.data || []);
+      const fallbackList: any[] = Array.isArray(issues)
         ? issues
         : (issues?.issues || issues?.items || issues?.data?.items || issues?.data || []);
-      const projectIssues = issueList.filter((i: any) =>
-        !i.project_id || Number(i.project_id) === Number(pid)
-      );
+      const projectIssues = allIssuesItems.length > 0
+        ? allIssuesItems.filter((i: any) => !i.project_id || Number(i.project_id) === Number(pid))
+        : fallbackList.filter((i: any) => !i.project_id || Number(i.project_id) === Number(pid));
+
+      const criticalCount = projectIssues.filter((i: any) => {
+        const p = (i.priority || "").toLowerCase();
+        return p === "critical" || p === "high";
+      }).length;
+
       setIssueSummary({
         items:    projectIssues,
-        // Direct flat-summary field names (from screenshot: {open:22, closed:1})
         open:     issues?.open      ?? issues?.open_issues     ?? projectIssues.filter((i: any) =>
           i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed'
         ).length,
         closed:   issues?.closed    ?? issues?.resolved_issues ?? projectIssues.filter((i: any) =>
           i.status?.toLowerCase() === 'resolved' || i.status?.toLowerCase() === 'closed'
         ).length,
-        critical: issues?.critical  ?? issues?.critical_issues ?? projectIssues.filter((i: any) =>
-          i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical'
-        ).length,
+        critical: issues?.critical  ?? issues?.critical_issues ?? criticalCount,
         total:    issues?.total ?? issues?.total_issues ?? (((issues?.open ?? 0) + (issues?.closed ?? 0)) || projectIssues.length)
       });
     } catch (error) {
@@ -499,9 +509,9 @@ const ClientReportsPage = () => {
       ),
       desc: "7-day performance summary covering milestone achievements, planned vs actual progress, and workforce trends.",
       stats: [
-        { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%` },
+        { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 0}%` },
         { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
-        { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
+        { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 0 },
         { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0 }
       ],
       onPDF: () => setShowWeeklyPdfModal(true),
@@ -515,9 +525,9 @@ const ClientReportsPage = () => {
           time: "Mon, 10:00 AM",
           status: "ALIGNED / ON-TRACK",
           metrics: [
-            { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%`, color: "text-blue-600" },
+            { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 0}%`, color: "text-blue-600" },
             { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
-            { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
+            { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 0 },
             { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0, color: "text-rose-500" }
           ]
         });
@@ -1627,6 +1637,7 @@ const ClientReportsPage = () => {
               <input
                 type="date"
                 value={reportEndDate}
+                min={reportStartDate || undefined}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => {
                   const newDate = e.target.value;

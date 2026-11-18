@@ -131,19 +131,19 @@ const MaterialRequestPage = () => {
         const missingFields: string[] = [];
 
         if (!formData.project_id) {
-            newErrors.project_id = "Project ID is required";
+            newErrors.project_id = "Project is required";
             missingFields.push("Project");
         }
         if (!formData.request_type) {
-            newErrors.request_type = "Request type is required";
+            newErrors.request_type = "Resource classification is required";
             missingFields.push("Resource Classification");
         }
         if (!formData.description.trim()) {
-            newErrors.description = "Technical narrative is required";
+            newErrors.description = "Descriptive Narrative is required";
             missingFields.push("Descriptive Narrative");
         }
         if (!formData.quantity || Number(formData.quantity) <= 0) {
-            newErrors.quantity = "Valid numeric quantity is required";
+            newErrors.quantity = "Required Quantum (Units) * is required";
             missingFields.push("Required Quantum (Units)");
         }
 
@@ -263,11 +263,11 @@ const MaterialRequestPage = () => {
 
         // Apply Status Filter
         if (activeFilter === "Approved") {
-            data = data.filter(r => r.status === "Approved");
+            data = data.filter(r => (r.status || "").toLowerCase() === "approved");
         } else if (activeFilter === "Pending") {
-            data = data.filter(r => r.status === "Pending");
+            data = data.filter(r => (r.status || "").toLowerCase() === "pending");
         } else if (activeFilter === "Reject") {
-            data = data.filter(r => r.status === "Rejected");
+            data = data.filter(r => (r.status || "").toLowerCase() === "rejected" || (r.status || "").toLowerCase() === "reject");
         }
 
         // Apply Resource Type Filter
@@ -299,9 +299,10 @@ const MaterialRequestPage = () => {
 
     const stats = {
         total: baseFilteredRequests.length,
-        approved: baseFilteredRequests.filter(r => r.status === "Approved").length,
-        pending: baseFilteredRequests.filter(r => r.status === "Pending").length,
-        fulfillment: Math.round((baseFilteredRequests.filter(r => r.status === "Approved").length / (baseFilteredRequests.length || 1)) * 100) || 0
+        approved: baseFilteredRequests.filter(r => (r.status || "").toLowerCase() === "approved").length,
+        pending: baseFilteredRequests.filter(r => (r.status || "").toLowerCase() === "pending").length,
+        rejected: baseFilteredRequests.filter(r => (r.status || "").toLowerCase() === "rejected" || (r.status || "").toLowerCase() === "reject").length,
+        fulfillment: Math.round((baseFilteredRequests.filter(r => (r.status || "").toLowerCase() === "approved").length / (baseFilteredRequests.length || 1)) * 100) || 0
     };
 
     const labelClasses = "block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 ml-1 font-inter";
@@ -312,11 +313,10 @@ const MaterialRequestPage = () => {
     `;
 
     const getStatusStyle = (status: string) => {
-        switch (status) {
-            case 'Approved': return 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50';
-            case 'Pending': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-50';
-            default: return 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-50';
-        }
+        const norm = (status || "").toLowerCase();
+        if (norm === "approved") return 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50';
+        if (norm === "pending") return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-50';
+        return 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-50';
     };
 
     return (
@@ -362,7 +362,7 @@ const MaterialRequestPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ────────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                     {[
                         {
                             title: "Total Logs",
@@ -384,6 +384,13 @@ const MaterialRequestPage = () => {
                             sub: "PM Validation",
                             accent: "text-amber-500",
                             status: "Pending",
+                        },
+                        {
+                            title: "Rejected",
+                            value: stats.rejected.toString(),
+                            sub: "Declined Requests",
+                            accent: "text-rose-500",
+                            status: "Reject",
                         },
                         {
                             title: "Fulfillment",
@@ -705,19 +712,26 @@ const MaterialRequestPage = () => {
                 title="Save Resources Request"
                 maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => {
-                            setIsFormModalOpen(false);
-                            setFormNotification(null);
-                        }} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                    <>
                         <button
+                            type="button"
+                            onClick={() => {
+                                setIsFormModalOpen(false);
+                                setFormNotification(null);
+                            }}
+                            className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-inter"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleSubmit}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="px-6 py-2.5 bg-primary hover:bg-blue-600 text-white text-sm font-semibold rounded-xl shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 disabled:opacity-50 font-inter cursor-pointer"
                         >
-                            {isSubmitting ? "Syncing..." : "Save Resources Request"}
+                            {isSubmitting ? "Syncing..." : "Save Resource Request"}
                         </button>
-                    </div>
+                    </>
                 }
             >
                 <form id="request-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
@@ -757,7 +771,7 @@ const MaterialRequestPage = () => {
                                     placeholder="-- Select Project --"
                                     error={!!errors.project_id}
                                 />
-                                {errors.project_id && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
+                                {errors.project_id && <p className="mt-1.5 text-xs text-rose-500 font-medium ml-1 font-inter">{errors.project_id}</p>}
                             </div>
                             <div className="font-inter z-[65] relative">
                                 <CustomSelect
@@ -773,7 +787,7 @@ const MaterialRequestPage = () => {
                                     ]}
                                     error={!!errors.request_type}
                                 />
-                                {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}
+                                {errors.request_type && <p className="mt-1.5 text-xs text-rose-500 font-medium ml-1 font-inter">{errors.request_type}</p>}
                             </div>
                         </div>
                     </div>
@@ -794,7 +808,7 @@ const MaterialRequestPage = () => {
                                     placeholder=""
                                     className={`${inputClasses(errors.description)} resize-none font-bold shadow-inner`}
                                 />
-                                {errors.description && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.description}</p>}
+                                {errors.description && <p className="mt-1.5 text-xs text-rose-500 font-medium ml-1 font-inter">{errors.description}</p>}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Required Quantum (Units) <span className="text-rose-500">*</span></label>
@@ -807,7 +821,7 @@ const MaterialRequestPage = () => {
                                     placeholder=""
                                     className={inputClasses(errors.quantity)}
                                 />
-                                {errors.quantity && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.quantity}</p>}
+                                {errors.quantity && <p className="mt-1.5 text-xs text-rose-500 font-medium ml-1 font-inter">{errors.quantity}</p>}
                             </div>
                         </div>
                     </div>

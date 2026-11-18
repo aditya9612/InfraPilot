@@ -45,133 +45,191 @@ const ClientFinancialDetailsPage = () => {
     fetchFinancialData();
   }, [projectId]);
 
-  const handleDownloadPdf = async () => {
+  const generateLocalPdf = () => {
     if (!projectId || !data) return;
-    try {
-      setExportingPdf(true);
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const primaryBlue: [number, number, number] = [15, 23, 42]; // #0F172A
-      const accentOrange: [number, number, number] = [249, 115, 22]; // #F97316
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const primaryBlue: [number, number, number] = [15, 23, 42]; // #0F172A
+    const accentOrange: [number, number, number] = [249, 115, 22]; // #F97316
 
-      // --- HEADER BACKGROUND ---
-      doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.rect(0, 0, pageWidth, 45, 'F');
+    // --- HEADER BACKGROUND ---
+    doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.rect(0, 0, pageWidth, 45, 'F');
 
-      // --- LOGO / BRANDING ---
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(24);
-      doc.text("INFRA", 14, 25);
-      doc.setTextColor(accentOrange[0], accentOrange[1], accentOrange[2]);
-      doc.text("PILOT", 42, 25);
+    // --- LOGO / BRANDING ---
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.text("INFRA", 14, 25);
+    doc.setTextColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+    doc.text("PILOT", 42, 25);
 
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Construction Billing Software", 14, 32);
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Construction Billing Software", 14, 32);
 
-      // --- REPORT BADGE ---
-      doc.setFillColor(accentOrange[0], accentOrange[1], accentOrange[2]);
-      doc.roundedRect(pageWidth - 65, 15, 50, 15, 3, 3, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("REPORT", pageWidth - 40, 25, { align: "center" });
+    // --- REPORT BADGE ---
+    doc.setFillColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+    doc.roundedRect(pageWidth - 65, 15, 50, 15, 3, 3, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("REPORT", pageWidth - 40, 25, { align: "center" });
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated: ${new Date().toUTCString()}`, pageWidth - 14, 36, { align: "right" });
+
+    // --- SUB-HEADER ---
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Financial Summary Report", pageWidth / 2, 60, { align: "center" });
+
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Project Archive: PRJ-${projectId} | Financial Audit Ledger`, pageWidth / 2, 67, { align: "center" });
+
+    // --- ORANGE DIVIDER ---
+    doc.setDrawColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+    doc.setLineWidth(1);
+    doc.line(14, 75, pageWidth - 14, 75);
+
+    // --- EXECUTIVE SUMMARY SECTION ---
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.text("Executive Summary", 14, 88);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text("Comprehensive high-level balance overview across all verified vendor billings, project disbursements, and gross site receipts.", 14, 94, { maxWidth: pageWidth - 28 });
+
+    // --- KPI CARDS IN 2X2 GRID ---
+    const startY = 105;
+    const cardW = (pageWidth - 34) / 2;
+    const cardH = 24;
+
+    const cards = [
+      { label: "Total Invoiced", value: fmt(data.total_invoice), desc: "Aggregate of all project bills submitted", x: 14, y: startY },
+      { label: "Amount Paid", value: fmt(data.paid_invoice), desc: "Confirmed vendor and sub-contractor disbursements", x: 14 + cardW + 6, y: startY },
+      { label: "Pending Dues", value: fmt(data.pending_invoice), desc: "Outstanding payables awaiting client clearance", x: 14, y: startY + cardH + 6 },
+      { label: "Project Expense", value: fmt(data.total_expense), desc: "Direct site capital expenditure and procurement", x: 14 + cardW + 6, y: startY + cardH + 6 },
+    ];
+
+    cards.forEach(c => {
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.roundedRect(c.x, c.y, cardW, cardH, 2, 2, 'FD');
 
       doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(c.label.toUpperCase(), c.x + 8, c.y + 7);
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text(c.value, c.x + 8, c.y + 15);
+
+      doc.setFontSize(6.5);
       doc.setFont("helvetica", "normal");
-      doc.text(`Generated: ${new Date().toUTCString()}`, pageWidth - 14, 36, { align: "right" });
+      doc.setTextColor(148, 163, 184);
+      doc.text(c.desc, c.x + 8, c.y + 20);
+    });
 
-      // --- SUB-HEADER ---
-      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("Financial Summary Report", pageWidth / 2, 60, { align: "center" });
+    // --- DETAILED AUDIT LEDGER TABLE ---
+    const tableY = startY + (cardH * 2) + 20;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.text("Disbursement & Settlement Ledger", 14, tableY);
 
-      doc.setFontSize(11);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Project Archive: PRJ-${projectId} | Financial Audit Ledger`, pageWidth / 2, 67, { align: "center" });
+    const tableRows = [
+      ["CONSOLIDATED PAYMENTS", "Settled Site Transactions", fmt(data.paid_invoice), "SETTLED", "TRX-19-S"],
+      ["OUTSTANDING CLEARANCE", "Pending Authorization Requests", fmt(data.pending_invoice), "PENDING", "TRX-19-P"],
+      ["CAPITAL EXPENDITURE", "Procurement & Site Logistics", fmt(data.total_expense), "VERIFIED", "EXP-19-C"],
+      ["GROSS MARGIN PROFILE", "Operating Variance / Margin", fmt(data.profit), data.profit >= 0 ? "SURPLUS" : "DEFICIT", "MAR-19-A"],
+    ];
 
-      // --- ORANGE DIVIDER ---
-      doc.setDrawColor(accentOrange[0], accentOrange[1], accentOrange[2]);
-      doc.setLineWidth(1);
-      doc.line(14, 75, pageWidth - 14, 75);
+    autoTable(doc, {
+      startY: tableY + 5,
+      head: [["Transaction Classification", "Audit Description", "Settlement Amount", "Status", "Reference"]],
+      body: tableRows,
+      theme: "grid",
+      headStyles: {
+        fillColor: primaryBlue,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 8,
+        halign: "left",
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 4,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    });
 
-      // --- SUMMARY HEADER ---
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.text("FINANCIAL SUMMARY", 14, 105);
+    // --- FOOTER NOTE & SYSTEM STAMP ---
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFillColor(254, 242, 242); // rose-50
+    doc.setDrawColor(254, 205, 211); // rose-200
+    doc.roundedRect(14, finalY, pageWidth - 28, 22, 2, 2, 'FD');
 
-      const pdfFmt = (val: number) => `Rs. ${(val ?? 0).toLocaleString("en-IN")}`;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(190, 18, 60); // rose-700
+    doc.text("FINANCIAL COMPLIANCE & RECONCILIATION NOTICE", 20, finalY + 7);
 
-      // --- SUMMARY STATS ---
-      const summaryStats = [
-        { label: "Total Expense", value: pdfFmt(data.total_expense) },
-        { label: "Total Invoice", value: pdfFmt(data.total_invoice) },
-        { label: "Paid Invoice", value: pdfFmt(data.paid_invoice) },
-        { label: "Pending", value: pdfFmt(data.pending_invoice) }
-      ];
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(136, 19, 55); // rose-900
+    doc.text("All ledger lines displayed in this report are synchronized directly with verified bank-endorsed statements and internal payment gateways. Any discrepancies should be formally submitted through the Payment Disputes Portal within 14 calendar days of issuance.", 20, finalY + 12, { maxWidth: pageWidth - 40 });
 
-      const statCount = summaryStats.length;
-      const statWidth = (pageWidth - 28) / statCount;
-      let currentX = 14;
+    doc.save(`Financial_Summary_Report_${projectId}.pdf`);
+    toast.success("Financial PDF exported successfully!");
+  };
 
-      summaryStats.forEach(stat => {
-        doc.setDrawColor(accentOrange[0], accentOrange[1], accentOrange[2]);
-        doc.setLineWidth(1);
-        doc.line(currentX, 115, currentX + statWidth - 2, 115);
-
-        doc.setFontSize(7);
-        doc.setTextColor(150, 150, 150);
-        doc.setFont("helvetica", "normal");
-        doc.text(stat.label.toUpperCase(), currentX + 2, 125);
-
-        doc.setFontSize(9);
-        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-        doc.setFont("helvetica", "bold");
-        doc.text(stat.value, currentX + 2, 140);
-        currentX += statWidth;
-      });
-
-      // --- DETAILED BREAKDOWN ---
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.text("AUDIT BREAKDOWN", 14, 165);
-
-      autoTable(doc, {
-        startY: 172,
-        head: [["Metric Identifier", "Audit Value", "Compliance Note"]],
-        body: [
-          ["Operational Expenditure", pdfFmt(data.total_expense), "Verified Site Overhead"],
-          ["Consolidated Revenue", pdfFmt(data.total_invoice), "Billed Milestone Value"],
-          ["Settled Revenue", pdfFmt(data.paid_invoice), "Confirmed Receipts"],
-          ["Outstanding AR", pdfFmt(data.pending_invoice), "Revenue in Transit"]
-        ],
-        theme: 'grid',
-        headStyles: {
-            fillColor: primaryBlue,
-            textColor: [255, 255, 255],
-            fontSize: 10,
-            fontStyle: 'bold'
-        },
-        bodyStyles: {
-            textColor: [30, 41, 59],
-            fontSize: 9
-        },
-        alternateRowStyles: {
-            fillColor: [248, 250, 252]
+  const handleDownloadPdf = async () => {
+    if (!projectId) return;
+    try {
+      setExportingPdf(true);
+      // Trigger backend API: GET /api/v1/reports/finance/pdf?project_id={projectId}
+      try {
+        const responseData = await reportService.exportFinancePdf(Number(projectId));
+        const blob = new Blob([responseData], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Financial_Summary_Report_${projectId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Financial PDF downloaded successfully!");
+      } catch (apiErr: any) {
+        console.warn("Backend finance PDF export failed, falling back to local generator:", apiErr);
+        if (apiErr.response?.data instanceof Blob) {
+          try {
+            const errorText = await apiErr.response.data.text();
+            console.error("Backend error response:", errorText);
+          } catch {
+            // ignore
+          }
         }
-      });
-
-      doc.save(`Financial_Summary_Report_${projectId}.pdf`);
-      toast.success("Financial PDF exported successfully!");
+        generateLocalPdf();
+      }
     } catch (err) {
-      console.error("Error generating Premium PDF:", err);
-      toast.error("Failed to generate premium export.");
+      console.error("Error generating PDF:", err);
+      toast.error("Failed to generate PDF export.");
     } finally {
       setExportingPdf(false);
     }

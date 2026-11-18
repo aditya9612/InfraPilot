@@ -1591,10 +1591,10 @@ const EquipmentPage = () => {
                 projectMap,
                 projectName: activeProject?.project_name || (selectedProjectId ? `Project #${selectedProjectId}` : "All Projects"),
                 stats: {
-                    total: stats.total,
-                    available: stats.available,
-                    allocated: stats.allocated,
-                    maintenance: stats.maintenance
+                    total: equipmentList.length,
+                    available: availableCount,
+                    allocated: allocatedCount,
+                    maintenance: maintenanceAlerts.length
                 }
             });
             toast.success("PDF exported successfully");
@@ -1843,8 +1843,10 @@ const EquipmentPage = () => {
                         toast.success("Equipment successfully transferred!");
                         setIsTransferModalOpen(false);
                         fetchData();
-                    } catch (err) {
-                        toast.error("Failed to transfer equipment");
+                    } catch (err: any) {
+                        const backendDetail = err.response?.data?.detail;
+                        const msg = (typeof backendDetail === "string" ? backendDetail : (backendDetail && backendDetail.msg)) || err.response?.data?.message || err.message || "Failed to transfer equipment";
+                        toast.error(msg);
                     }
                 }}
             />

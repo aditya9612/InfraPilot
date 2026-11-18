@@ -490,34 +490,6 @@ const MachineryPage = () => {
         fetchProjects();
     }, []);
 
-    const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newProjectId = e.target.value ? Number(e.target.value) : null;
-        setSelectedProjectId(newProjectId);
-        if (newProjectId) {
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const selectedProjObj = projects.find(p => Number(p.id) === newProjectId);
-
-                    parsed.project_id = newProjectId;
-                    parsed.default_project_id = newProjectId;
-                    if (selectedProjObj) {
-                        parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                    }
-                    if (parsed.user) {
-                        parsed.user.project_id = newProjectId;
-                        if (selectedProjObj) {
-                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                        }
-                    }
-                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
-                    window.dispatchEvent(new Event('storage'));
-                }
-            } catch (e) { }
-        }
-    };
-
     // ─── Data Fetching ─────────────────────────────────────────────────
 
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -885,7 +857,21 @@ const MachineryPage = () => {
             const res = await equipmentService.listEquipment({ limit: 100 });
             setEquipmentList(res.items || []);
         } catch (error: any) {
-            setFormNotification({ type: 'error', message: error.message || "Failed to transfer equipment" });
+            const backendDetail = error.response?.data?.detail;
+            let errorMsg = "Failed to transfer equipment";
+            if (typeof backendDetail === "string") {
+                errorMsg = backendDetail;
+            } else if (Array.isArray(backendDetail) && backendDetail.length > 0) {
+                errorMsg = backendDetail.map((d: any) => d.msg || d.message || (typeof d === 'string' ? d : JSON.stringify(d))).join(", ");
+            } else if (backendDetail && typeof backendDetail === "object") {
+                errorMsg = backendDetail.msg || backendDetail.message || JSON.stringify(backendDetail);
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+            toast.error(errorMsg);
+            setFormNotification({ type: 'error', message: errorMsg });
         }
     };
 
@@ -1107,9 +1093,15 @@ const MachineryPage = () => {
         e.preventDefault();
 
         const form = e.target as HTMLFormElement;
-        if (!form.checkValidity()) {
-            const missingFields = getMissingFields(form);
-            setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
+        const missing: string[] = [];
+        if (!formData.client_name || !String(formData.client_name).trim()) {
+            missing.push("CLIENT NAME");
+        }
+
+        if (!form.checkValidity() || missing.length > 0) {
+            const missingFields = [...getMissingFields(form), ...missing];
+            const uniqueMissing = Array.from(new Set(missingFields));
+            setFormNotification({ type: 'error', message: uniqueMissing.length === 0 ? "Please fill all mandatory fields" : undefined, fields: uniqueMissing.length > 0 ? uniqueMissing : undefined });
             return;
         }
         setFormNotification(null);
@@ -1120,7 +1112,7 @@ const MachineryPage = () => {
 
             const payload = {
                 ...formData,
-                client_name: formData.client_name || null,
+                client_name: String(formData.client_name || '').trim(),
                 start_date: formData.start_date || today.toISOString().split('T')[0],
                 end_date: formData.end_date || tomorrow.toISOString().split('T')[0]
             } as any;
@@ -1265,9 +1257,9 @@ const MachineryPage = () => {
         return equipmentList.filter(item => {
             const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === "" ||
-                item.equipment_name.toLowerCase().includes(term) ||
-                item.equipment_code.toLowerCase().includes(term) ||
-                item.operator_name.toLowerCase().includes(term);
+                (item.equipment_name || "").toLowerCase().includes(term) ||
+                (item.equipment_code || "").toLowerCase().includes(term) ||
+                (item.operator_name || "").toLowerCase().includes(term);
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
 
             // Allocation filter takes priority over project filter
@@ -2746,8 +2738,16 @@ const MachineryPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">CLIENT NAME</label>
-                        <input type="text" value={formData.client_name || ''} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
+                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">CLIENT NAME <span className="text-red-600">*</span></label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.client_name || ''}
+                            onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                            placeholder="Enter client name"
+                            className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'CLIENT NAME') ? "!border-rose-500 !bg-rose-50" : ""}`}
+                        />
+                        {formNotification?.fields?.some(f => f.toUpperCase() === 'CLIENT NAME') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div className="relative z-20">
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">PROJECT (OPTIONAL)</label>
@@ -3035,42 +3035,46 @@ const MachineryPage = () => {
 
             {/* Transfer Modal */}
             <Modal isOpen={isTransferModalOpen} onClose={() => { setFormNotification(null); setIsTransferModalOpen(false); }} title="Transfer Equipment" maxWidth="max-w-md">
-                <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5">
-                    {renderFormNotification()}
-                    <div className="relative z-30">
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
-                        <CustomSelect
-                            value={formData.equipment_id ? String(formData.equipment_id) : ""}
-                            onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : undefined })}
-                            options={equipmentList.filter(eq => eq.project_id).map(eq => ({
-                                id: String(eq.id),
-                                label: `${eq.equipment_name} - ${eq.equipment_code}`
-                            }))}
-                            placeholder="-- Choose equipment --"
-                            maxHeight="max-h-48"
-                            searchable={equipmentList.length > 5}
-                            error={formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT')}
-                        />
-                        {formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                <form onSubmit={handleTransfer} noValidate className="p-6 font-inter space-y-5 min-h-[380px] flex flex-col justify-between">
+                    <div>
+                        {renderFormNotification()}
+                        <div className="relative z-30 focus-within:z-40 mb-5">
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">SELECT EQUIPMENT <span className="text-red-600">*</span></label>
+                            <CustomSelect
+                                value={formData.equipment_id ? String(formData.equipment_id) : ""}
+                                onChange={(val) => setFormData({ ...formData, equipment_id: val ? Number(val) : undefined })}
+                                options={equipmentList.filter(eq => eq.project_id).map(eq => ({
+                                    id: String(eq.id),
+                                    label: `${eq.equipment_name} - ${eq.equipment_code}`
+                                }))}
+                                placeholder="-- Choose equipment --"
+                                maxHeight="max-h-48"
+                                placement="bottom"
+                                searchable={equipmentList.length > 5}
+                                error={formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT')}
+                            />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'SELECT EQUIPMENT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                        </div>
+                        <div className="relative z-20 focus-within:z-40">
+                            <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
+                            <CustomSelect
+                                value={formData.project_id ? String(formData.project_id) : ""}
+                                onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
+                                options={projects.map(p => ({
+                                    id: String(p.id),
+                                    label: p.project_name || p.name || `Project #${p.id}`
+                                }))}
+                                placeholder="-- Select target project --"
+                                maxHeight="max-h-48"
+                                placement="bottom"
+                                searchable={projects.length > 5}
+                                error={formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT')}
+                            />
+                            {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            <p className="text-[10px] text-slate-400 mt-2 ml-1">Equipment will be moved to the selected project.</p>
+                        </div>
                     </div>
-                    <div className="relative z-20">
-                        <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">TARGET PROJECT <span className="text-red-600">*</span></label>
-                        <CustomSelect
-                            value={formData.project_id ? String(formData.project_id) : ""}
-                            onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
-                            options={projects.map(p => ({
-                                id: String(p.id),
-                                label: p.project_name || p.name || `Project #${p.id}`
-                            }))}
-                            placeholder="-- Select target project --"
-                            maxHeight="max-h-48"
-                            searchable={projects.length > 5}
-                            error={formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT')}
-                        />
-                        {formNotification?.fields?.some(f => f.toUpperCase() === 'TARGET PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
-                        <p className="text-[10px] text-slate-400 mt-2 ml-1">Equipment will be moved to the selected project.</p>
-                    </div>
-                    <div className="flex justify-end gap-3 mt-8">
+                    <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-100">
                         <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                         <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95">Transfer Equipment</button>
                     </div>
@@ -3278,7 +3282,7 @@ const MachineryPage = () => {
                         ></textarea>
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-3 text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95">Cancel</button>
+                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                         <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">{createPurchaseForm.id ? "Edit Purchase" : "Save Purchase"}</button>
                     </div>
                 </form>

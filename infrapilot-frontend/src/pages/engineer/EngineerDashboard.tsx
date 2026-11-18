@@ -20,6 +20,10 @@ const phaseStatusStyle: Record<string, string> = {
     IN_PROGRESS: "bg-blue-100 text-blue-700",
     PLANNED: "bg-slate-100 text-slate-500",
     DELAYED: "bg-rose-100 text-rose-700",
+    CANCELLED: "bg-rose-100 text-rose-700",
+    Cancelled: "bg-rose-100 text-rose-700",
+    CANCELED: "bg-rose-100 text-rose-700",
+    Canceled: "bg-rose-100 text-rose-700",
 };
 
 const EngineerDashboard = () => {
@@ -138,9 +142,10 @@ const EngineerDashboard = () => {
 
                 const today_work_summary = (apiData.today_work_summary || []).map((a: any, idx: number) => {
                     const stStatus = a.status === "WorkActivityStatus.COMPLETED" ? "Completed" :
-                        a.status === "WorkActivityStatus.DELAY" ? "Pending" : "In Progress";
+                        a.status === "WorkActivityStatus.DELAY" ? "Pending" :
+                        (a.status === "WorkActivityStatus.CANCELLED" || (a.status || "").toLowerCase().includes("cancel")) ? "Cancelled" : "In Progress";
                     const statusColor = a.status === "WorkActivityStatus.COMPLETED" ? "bg-emerald-100 text-emerald-600" :
-                        a.status === "WorkActivityStatus.DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600";
+                        (a.status === "WorkActivityStatus.DELAY" || a.status === "WorkActivityStatus.CANCELLED" || (a.status || "").toLowerCase().includes("cancel")) ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600";
 
                     return {
                         id: `act_${idx}`,

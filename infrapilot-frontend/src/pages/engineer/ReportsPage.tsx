@@ -163,7 +163,49 @@ const reportTypes: ReportType[] = [
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
+const extractBackendErrorMessage = async (error: any, fallback: string = "Failed to export report"): Promise<string> => {
+    if (!error) return fallback;
+    try {
+        if (error.response?.data instanceof Blob) {
+            const text = await error.response.data.text();
+            if (text) {
+                try {
+                    const json = JSON.parse(text);
+                    if (json.detail) {
+                        if (typeof json.detail === "string") return json.detail;
+                        if (Array.isArray(json.detail)) {
+                            return json.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+                        }
+                        return JSON.stringify(json.detail);
+                    }
+                    if (json.message) return json.message;
+                    if (json.error) return json.error;
+                } catch {
+                    return text;
+                }
+            }
+        } else if (error.response?.data) {
+            const data = error.response.data;
+            if (typeof data === "string") return data;
+            if (data.detail) {
+                if (typeof data.detail === "string") return data.detail;
+                if (Array.isArray(data.detail)) {
+                    return data.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+                }
+                return JSON.stringify(data.detail);
+            }
+            if (data.message) return data.message;
+            if (data.error) return data.error;
+        }
+    } catch {
+        // Fallback below
+    }
+    if (error.message) return error.message;
+    return fallback;
+};
+
 const ReportsPage = () => {
+    const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
     const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [activeFilter, setActiveFilter] = useState("daily");
@@ -173,8 +215,32 @@ const ReportsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+    const [dateErrors, setDateErrors] = useState<{ startDate?: string; endDate?: string }>({});
+    const [isTopCsvExporting, setIsTopCsvExporting] = useState(false);
+    const [isTopPdfExporting, setIsTopPdfExporting] = useState(false);
     const { selectedProjectId } = useProject();
     const projectId = selectedProjectId || 0;
+
+    const validateDates = (): boolean => {
+        const errors: { startDate?: string; endDate?: string } = {};
+        if (!startDate) {
+            errors.startDate = "Start Date is required.";
+        }
+        if (!endDate) {
+            errors.endDate = "End Date is required.";
+        }
+        if (startDate && endDate && startDate > endDate) {
+            errors.endDate = "End Date cannot be earlier than Start Date.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setDateErrors(errors);
+            toast.error("Please select valid Start Date and End Date.");
+            return false;
+        }
+        setDateErrors({});
+        return true;
+    };
 
     // ─── Export Filter State ───────────────────────────────────────────────────
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -502,11 +568,16 @@ const ReportsPage = () => {
     }, [fetchReports]);
 
     const handleExportCSV = async () => {
+        if (isTopCsvExporting) return;
+        if (!validateDates()) return;
+
+        setIsTopCsvExporting(true);
         const toastId = toast.loading("Generating Project Excel Report...");
         try {
             const dateParts = startDate.split("-");
             const year = dateParts[0];
             const month = dateParts[1];
+            const currentQuarter = Math.ceil(Number(month) / 3);
             const type = activeFilter;
             
             const params = new URLSearchParams({
@@ -516,7 +587,8 @@ const ReportsPage = () => {
                 start_date: startDate,
                 end_date: endDate,
                 month: month,
-                year: year
+                year: year,
+                quarter: String(currentQuarter)
             });
             
             const response = await api.get(`/reports/project/export/excel?${params.toString()}`, {
@@ -540,16 +612,24 @@ const ReportsPage = () => {
             toast.success("Excel Report downloaded!", { id: toastId });
         } catch (error: any) {
             console.error("Failed to generate Excel", error);
-            toast.error("Failed to generate Excel Report", { id: toastId });
+            const errorMsg = await extractBackendErrorMessage(error, "Failed to generate Excel Report");
+            toast.error(errorMsg, { id: toastId });
+        } finally {
+            setIsTopCsvExporting(false);
         }
     };
 
     const handleExportPDF = async () => {
+        if (isTopPdfExporting) return;
+        if (!validateDates()) return;
+
+        setIsTopPdfExporting(true);
         const toastId = toast.loading("Generating Project PDF Report...");
         try {
             const dateParts = startDate.split("-");
             const year = dateParts[0];
             const month = dateParts[1];
+            const currentQuarter = Math.ceil(Number(month) / 3);
             const type = activeFilter;
             
             const params = new URLSearchParams({
@@ -559,7 +639,8 @@ const ReportsPage = () => {
                 start_date: startDate,
                 end_date: endDate,
                 month: month,
-                year: year
+                year: year,
+                quarter: String(currentQuarter)
             });
             
             const response = await api.get(`/reports/project/export/pdf?${params.toString()}`, {
@@ -583,11 +664,15 @@ const ReportsPage = () => {
             toast.success("PDF Report downloaded!", { id: toastId });
         } catch (error: any) {
             console.error("Failed to generate PDF", error);
-            toast.error("Failed to generate PDF Report", { id: toastId });
+            const errorMsg = await extractBackendErrorMessage(error, "Failed to generate PDF Report");
+            toast.error(errorMsg, { id: toastId });
+        } finally {
+            setIsTopPdfExporting(false);
         }
     };
 
     const handleCardPDF = async (report: ReportType) => {
+        if (loadingId) return;
         setLoadingId(`pdf-${report.id}`);
         toast.loading(`Fetching data for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
@@ -919,7 +1004,7 @@ const ReportsPage = () => {
             setIsQuarterlyExportModalOpen(false);
         } catch (error: any) {
             console.error(`Failed to generate Quarterly ${quarterlyExportType}`, error);
-            const msg = error.message || `Failed to generate Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`;
+            const msg = await extractBackendErrorMessage(error, `Failed to generate Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`);
             toast.error(msg, { id: toastId });
         } finally {
             setIsQuarterlyExporting(false);
@@ -927,6 +1012,7 @@ const ReportsPage = () => {
     };
 
     const handleExport = async (report: ReportType) => {
+        if (loadingId) return;
         setLoadingId(report.id);
         toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
@@ -1266,26 +1352,49 @@ const ReportsPage = () => {
                     {/* Date Pickers */}
                     <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto min-w-[250px]">
                         <div className="flex flex-col gap-0.5 w-full sm:w-1/2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Date</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Start Date <span className="text-rose-500 font-bold">*</span>
+                            </label>
                             <div className="relative">
                                 <input
                                     type="date"
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
+                                    max={todayStr}
+                                    onChange={(e) => {
+                                        setStartDate(e.target.value);
+                                        if (dateErrors.startDate) {
+                                            setDateErrors(prev => ({ ...prev, startDate: undefined }));
+                                        }
+                                    }}
+                                    className={`w-full px-3 py-2 bg-slate-50 border ${dateErrors.startDate ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer`}
                                 />
                             </div>
+                            {dateErrors.startDate && (
+                                <p className="text-[11px] font-semibold text-rose-500 mt-0.5">{dateErrors.startDate}</p>
+                            )}
                         </div>
                         <div className="flex flex-col gap-0.5 w-full sm:w-1/2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Date</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                End Date <span className="text-rose-500 font-bold">*</span>
+                            </label>
                             <div className="relative">
                                 <input
                                     type="date"
                                     value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
+                                    min={startDate || undefined}
+                                    max={todayStr}
+                                    onChange={(e) => {
+                                        setEndDate(e.target.value);
+                                        if (dateErrors.endDate) {
+                                            setDateErrors(prev => ({ ...prev, endDate: undefined }));
+                                        }
+                                    }}
+                                    className={`w-full px-3 py-2 bg-slate-50 border ${dateErrors.endDate ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer`}
                                 />
                             </div>
+                            {dateErrors.endDate && (
+                                <p className="text-[11px] font-semibold text-rose-500 mt-0.5">{dateErrors.endDate}</p>
+                            )}
                         </div>
                     </div>
 
@@ -1321,20 +1430,30 @@ const ReportsPage = () => {
                     <div className="lg:ml-auto flex items-end gap-2 w-full lg:w-auto pb-0.5 justify-end">
                         <button
                             onClick={handleExportPDF}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                            disabled={isTopPdfExporting}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md shadow-primary/20 hover:bg-blue-600 transition-all font-inter disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            {isTopPdfExporting ? (
+                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            )}
                             PDF
                         </button>
                         <button
                             onClick={handleExportCSV}
-                            className="flex items-center gap-2 px-4 py-2 bg-white text-slate-600 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all shadow-sm font-inter"
+                            disabled={isTopCsvExporting}
+                            className="flex items-center gap-2 px-4 py-2 bg-white text-slate-600 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all shadow-sm font-inter disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            {isTopCsvExporting ? (
+                                <span className="w-3.5 h-3.5 border-2 border-slate-600/30 border-t-slate-600 rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            )}
                             Export
                         </button>
                     </div>

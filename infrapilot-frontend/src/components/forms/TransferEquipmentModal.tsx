@@ -34,7 +34,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
         <Modal isOpen={isOpen} onClose={onClose} title="Transfer Equipment" maxWidth="max-w-2xl">
             <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-slate-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 relative z-30 focus-within:z-40">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Equipment <span className="text-rose-500">*</span></label>
                         <CustomSelect
                             value={formData.equipment_id}
@@ -48,12 +48,13 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                             }))}
                             placeholder="-- Choose Equipment --"
                             maxHeight="max-h-48"
+                            placement="bottom"
                             searchable={equipmentList.length > 5}
                         />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <div className="bg-white rounded-xl border border-slate-200 p-5 relative z-20 focus-within:z-40">
                     <div className="flex flex-col md:flex-row items-center gap-4">
                         <div className="flex-1 w-full">
                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Source Project</label>
@@ -68,7 +69,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                             <ArrowRight className="w-4 h-4" />
                         </div>
 
-                        <div className="flex-1 w-full">
+                        <div className="flex-1 w-full relative z-20 focus-within:z-40">
                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Target Project <span className="text-rose-500">*</span></label>
                             <CustomSelect
                                 value={formData.target_project_id}
@@ -82,6 +83,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                                 ]}
                                 placeholder="-- Choose Target Project --"
                                 maxHeight="max-h-48"
+                                placement="bottom"
                                 searchable={projects.length > 5}
                             />
                         </div>

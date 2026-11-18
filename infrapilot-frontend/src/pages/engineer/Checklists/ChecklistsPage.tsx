@@ -157,6 +157,7 @@ const ChecklistsPage = () => {
         const newErrors: Record<string, string> = {};
         if (!newChecklistProjectId) newErrors.project_id = "Project is required";
         if (!newChecklistName.trim()) newErrors.name = "Name is required";
+        if (newChecklistItems.length === 0) newErrors.items = "At least one verification point is required";
 
         setErrors(newErrors);
 
@@ -164,6 +165,7 @@ const ChecklistsPage = () => {
             const missingFields = [];
             if (newErrors.project_id) missingFields.push("Project Context");
             if (newErrors.name) missingFields.push("Descriptive Title");
+            if (newErrors.items) missingFields.push("Verification Points (at least one verification point required)");
             
             const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
             setFormNotification({ type: 'error', message: errorMsg });
@@ -181,9 +183,10 @@ const ChecklistsPage = () => {
             });
 
             for (const item of newChecklistItems) {
+                const itemText = item.trim().length > 255 ? item.trim().slice(0, 255) : item.trim();
                 await checklistService.addItem({
                     checklist_id: created.id,
-                    item: item
+                    item: itemText
                 });
             }
 
@@ -212,7 +215,16 @@ const ChecklistsPage = () => {
             setFormNotification(null);
             setErrors({});
         } catch (err) {
-            toast.error("Failed to create checklist");
+            let errorMsg = "Failed to create checklist";
+            if ((err as any)?.response?.status === 500) {
+                errorMsg = "Database error: Checklist item text may be too long (max 255 characters).";
+            } else if ((err as any)?.response?.data?.detail) {
+                errorMsg = typeof (err as any).response.data.detail === "string" 
+                    ? (err as any).response.data.detail 
+                    : JSON.stringify((err as any).response.data.detail);
+            }
+            toast.error(errorMsg);
+            setFormNotification({ type: 'error', message: errorMsg });
         } finally {
             setIsSubmitting(false);
         }
@@ -308,18 +320,35 @@ const ChecklistsPage = () => {
     const handleAddItem = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!addItemText.trim() || !selectedChecklist) return;
+        if (addItemText.trim().length > 255) {
+            toast.error("Checklist item text cannot exceed 255 characters");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
             await checklistService.addItem({
                 checklist_id: selectedChecklist.id,
-                item: addItemText
+                item: addItemText.trim()
             });
             toast.success("Item added successfully!");
             setAddItemText("");
             await fetchChecklistItems(selectedChecklist.id);
-        } catch (err) {
-            toast.error("Failed to add item");
+        } catch (err: any) {
+            console.error("Failed to add checklist item", err);
+            let errorMsg = "Failed to add item";
+            if (err.response?.status === 500) {
+                errorMsg = "Database error: Checklist item text may be too long (max 255 characters).";
+            } else if (err.response?.data?.detail) {
+                errorMsg = typeof err.response.data.detail === "string" 
+                    ? err.response.data.detail 
+                    : (Array.isArray(err.response.data.detail) ? err.response.data.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ") : JSON.stringify(err.response.data.detail));
+            } else if (err.response?.data?.message) {
+                errorMsg = err.response.data.message;
+            } else if (err.message) {
+                errorMsg = err.message;
+            }
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -329,13 +358,28 @@ const ChecklistsPage = () => {
         if (!editItemText.trim() || !selectedChecklist) return;
         setIsSubmitting(true);
         try {
-            await checklistService.updateItem(itemId, { item: editItemText });
+            await checklistService.updateItem(itemId, {
+                item_name: editItemText.trim(),
+                item: editItemText.trim()
+            });
             toast.success("Item updated successfully!");
+            setCurrentChecklistItems(prev => prev.map(it => it.id === itemId ? { ...it, item: editItemText.trim(), item_name: editItemText.trim() } as any : it));
             setEditingItemId(null);
             setEditItemText("");
             await fetchChecklistItems(selectedChecklist.id);
-        } catch (err) {
-            toast.error("Failed to update item");
+        } catch (err: any) {
+            console.error("Failed to update checklist item", err);
+            let errorMsg = "Failed to update item";
+            if (err.response?.data?.detail) {
+                errorMsg = typeof err.response.data.detail === "string" 
+                    ? err.response.data.detail 
+                    : (Array.isArray(err.response.data.detail) ? err.response.data.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ") : JSON.stringify(err.response.data.detail));
+            } else if (err.response?.data?.message) {
+                errorMsg = err.response.data.message;
+            } else if (err.message) {
+                errorMsg = err.message;
+            }
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -505,9 +549,20 @@ const ChecklistsPage = () => {
     }, [searchTerm, activeStatFilter]);
 
     const addTempItem = () => {
-        if (tempItemText.trim()) {
-            setNewChecklistItems(prev => [...prev, tempItemText.trim()]);
-            setTempItemText("");
+        if (!tempItemText.trim()) return;
+        if (tempItemText.trim().length > 255) {
+            toast.error("Checklist item text cannot exceed 255 characters");
+            return;
+        }
+        setNewChecklistItems(prev => [...prev, tempItemText.trim()]);
+        setTempItemText("");
+        setErrors(prev => {
+            const copy = { ...prev };
+            delete copy.items;
+            return copy;
+        });
+        if (formNotification?.message.includes("Verification Point")) {
+            setFormNotification(null);
         }
     };
 
@@ -889,14 +944,21 @@ const ChecklistsPage = () => {
                 title="Create Checklist"
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsNewModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                    <div className="flex items-center justify-end gap-3 font-inter">
                         <button
+                            type="button"
+                            onClick={() => setIsNewModalOpen(false)}
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleCreateChecklist}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center"
                         >
-                            {isSubmitting ? "Syncing..." : "Save Checklist"}
+                            {isSubmitting ? "Saving..." : "Save Checklist"}
                         </button>
                     </div>
                 }
@@ -969,47 +1031,83 @@ const ChecklistsPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                            <CheckCircle2 className="w-4 h-4 text-primary" />
-                            Verification Points Matrix
+                    <div className={`bg-white p-6 rounded-2xl border ${errors.items ? 'border-rose-200 ring-2 ring-rose-500/10' : 'border-slate-100'} shadow-sm font-inter transition-all`}>
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center justify-between font-inter">
+                            <span className="flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-primary" />
+                                Verification Points Matrix <span className="text-rose-500 font-bold">*</span>
+                            </span>
+                            {errors.items && (
+                                <span className="text-rose-500 text-[10px] font-bold normal-case">
+                                    {errors.items}
+                                </span>
+                            )}
                         </h3>
-                        {errors.items && <p className="mb-4 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.items}</p>}
-                        <div className="flex gap-3 mb-6 font-inter">
-                            <input
-                                type="text"
-                                value={tempItemText}
-                                onChange={(e) => setTempItemText(e.target.value)}
-                                placeholder=""
-                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                            />
-                            <button
-                                type="button"
-                                onClick={addTempItem}
-                                className="px-6 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 shadow-sm transition-all active:scale-95 font-inter"
-                            >
-                                ADD ITEM
-                            </button>
+                        {errors.items && (
+                            <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-semibold">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+                                <span>At least one verification point is required before saving.</span>
+                            </div>
+                        )}
+                        <div className="flex flex-col gap-1.5 mb-6 font-inter">
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    value={tempItemText}
+                                    maxLength={255}
+                                    onChange={(e) => setTempItemText(e.target.value)}
+                                    placeholder="Enter verification point..."
+                                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            addTempItem();
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={addTempItem}
+                                    className="px-6 h-10 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 shadow-sm transition-all active:scale-95 font-inter whitespace-nowrap shrink-0 flex items-center justify-center"
+                                >
+                                    ADD ITEM
+                                </button>
+                            </div>
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[10px] text-slate-400">Max 255 characters</span>
+                                <span className={`text-[10px] font-medium ${tempItemText.length > 240 ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>
+                                    {tempItemText.length}/255
+                                </span>
+                            </div>
                         </div>
 
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar font-inter">
                             {newChecklistItems.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item hover:bg-blue-50 hover:border-blue-100 transition-all font-inter">
-                                    <div className="flex items-center gap-4 font-inter">
-                                        <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-bold font-inter">{idx + 1}</div>
-                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-tight font-inter">{item}</span>
+                                <div key={idx} className="flex items-start justify-between gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item hover:bg-blue-50 hover:border-blue-100 transition-all font-inter">
+                                    <div className="flex items-start gap-3 flex-1 min-w-0 font-inter">
+                                        <div className="w-6 h-6 min-w-[24px] min-h-[24px] shrink-0 aspect-square bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-bold font-inter mt-0.5">{idx + 1}</div>
+                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-tight font-inter break-words leading-relaxed min-w-0 flex-1">{item}</span>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => setNewChecklistItems(prev => prev.filter((_, i) => i !== idx))}
-                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-xl transition-all font-inter"
+                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-xl transition-all font-inter shrink-0"
+                                        title="Delete"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             ))}
                             {newChecklistItems.length === 0 && (
-                                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-2xl font-inter">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added.</p>
+                                <div className={`py-12 text-center border-2 border-dashed ${errors.items ? 'border-rose-300 bg-rose-50/20' : 'border-slate-100'} rounded-2xl font-inter transition-all`}>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${errors.items ? 'text-rose-600 font-black' : 'text-slate-400'} font-inter`}>
+                                        {errors.items ? "At least one verification point is required" : "No verification points added."}
+                                    </p>
+                                    {errors.items && (
+                                        <p className="text-[11px] text-rose-500 mt-1 font-medium font-inter">
+                                            Type an item above and click "ADD ITEM" to include it in the checklist.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1024,16 +1122,23 @@ const ChecklistsPage = () => {
                 title="Update Technical Protocol"
                 maxWidth="max-w-xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsEditChecklistModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                    <>
                         <button
+                            type="button"
+                            onClick={() => setIsEditChecklistModalOpen(false)}
+                            className="px-5 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleUpdateChecklist}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : "Update Protocol"}
                         </button>
-                    </div>
+                    </>
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
@@ -1115,9 +1220,13 @@ const ChecklistsPage = () => {
                 title="Manage Verification Points"
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsAddItemModalOpen(false)} className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-blue-600 transition-all font-inter">Done</button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsAddItemModalOpen(false)}
+                        className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600 shadow-md shadow-primary/25 transition-all font-inter"
+                    >
+                        Done
+                    </button>
                 }
             >
                 <div className="p-6 font-inter space-y-6">
@@ -1155,8 +1264,8 @@ const ChecklistsPage = () => {
                             ) : (
                                 currentChecklistItems.map((item, idx) => (
                                     <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-100 transition-all font-inter">
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>
+                                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                                            <div className="w-6 h-6 min-w-[24px] min-h-[24px] shrink-0 aspect-square bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</div>
                                             {editingItemId === item.id ? (
                                                 <input
                                                     type="text"
@@ -1170,7 +1279,7 @@ const ChecklistsPage = () => {
                                                     }}
                                                 />
                                             ) : (
-                                                <span className="text-sm font-semibold text-slate-700">{item.item}</span>
+                                                <span className="text-sm font-semibold text-slate-700 break-words leading-relaxed min-w-0 flex-1">{item.item || (item as any).item_name || (item as any).name}</span>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2 ml-4">
@@ -1181,7 +1290,7 @@ const ChecklistsPage = () => {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button onClick={() => { setEditingItemId(item.id); setEditItemText(item.item); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit"><Edit3 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setEditingItemId(item.id); setEditItemText(item.item || (item as any).item_name || ""); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit"><Edit3 className="w-4 h-4" /></button>
                                                     <button onClick={() => handleDeleteItem(item.id)} disabled={isSubmitting} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
@@ -1201,9 +1310,13 @@ const ChecklistsPage = () => {
                 title="View Verification Points"
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsViewItemsModalOpen(false)} className="px-6 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Close</button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsViewItemsModalOpen(false)}
+                        className="px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter"
+                    >
+                        Close
+                    </button>
                 }
             >
                 <div className="p-6 font-inter space-y-6">
@@ -1218,10 +1331,10 @@ const ChecklistsPage = () => {
                                 <div className="py-8 text-center text-slate-400 text-sm font-semibold">No points found.</div>
                             ) : (
                                 currentChecklistItems.map((item, idx) => (
-                                    <div key={item.id} className="flex items-center p-3 bg-white border border-slate-100 rounded-xl font-inter hover:bg-slate-50 transition-all">
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>
-                                            <span className="text-sm font-semibold text-slate-700">{item.item}</span>
+                                    <div key={item.id} className="flex items-start p-3 bg-white border border-slate-100 rounded-xl font-inter hover:bg-slate-50 transition-all">
+                                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                                            <div className="w-6 h-6 min-w-[24px] min-h-[24px] shrink-0 aspect-square bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</div>
+                                            <span className="text-sm font-semibold text-slate-700 break-words leading-relaxed min-w-0 flex-1">{item.item || (item as any).item_name || (item as any).name}</span>
                                         </div>
                                     </div>
                                 ))
@@ -1238,12 +1351,19 @@ const ChecklistsPage = () => {
                 title="Edit Execute"
                 maxWidth="max-w-lg"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsExecuteModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                    <div className="flex items-center justify-end gap-3 font-inter">
                         <button
+                            type="button"
+                            onClick={() => setIsExecuteModalOpen(false)}
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleExecuteChecklist}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="h-10 px-6 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center"
                         >
                             {isSubmitting ? "Syncing..." : "Edit Execute"}
                         </button>

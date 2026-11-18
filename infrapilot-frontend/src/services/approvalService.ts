@@ -82,5 +82,12 @@ export const approvalService = {
             console.warn(`Approval Service: Virtual rejection for ${id}`);
             return { success: true, id, status: "Rejected" };
         }
+    },
+
+    async exportApprovals(): Promise<Blob> {
+        const response = await api.get("/approvals/export", {
+            responseType: "blob"
+        });
+        return response.data;
     }
 };
