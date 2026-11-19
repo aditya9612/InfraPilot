@@ -389,7 +389,7 @@ const ClientSettingsPage = () => {
                         <div className="p-8 border-b border-slate-50 bg-white">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Profile & Account</h2>
+                                <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-inter">Profile & Account</h2>
                             </div>
                         </div>
                         <div className="p-10 flex flex-col md:flex-row gap-12">
@@ -441,7 +441,7 @@ const ClientSettingsPage = () => {
                                     { label: "Joining Date", key: "joining_date", value: profile?.joining_date, type: "date" },
                                 ].map((field) => (
                                     <div key={field.key} className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                                        <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">{field.label}</label>
                                         <div className="relative">
                                             <input
                                                 type={field.key === 'joining_date' ? 'text' : (field.type || "text")}
@@ -471,7 +471,7 @@ const ClientSettingsPage = () => {
                                     </div>
                                 ))}
                                 <div className="md:col-span-2 space-y-2">
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Address</label>
+                                    <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">Address</label>
                                     <input
                                         type="text"
                                         value={profile?.address || "Pune"}
@@ -499,7 +499,7 @@ const ClientSettingsPage = () => {
                                 </div>
 
                                 <div className="md:col-span-2 flex justify-end mt-4">
-                                    <button onClick={handleSaveAll} disabled={updating} className="px-8 py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:bg-slate-800 transition-all active:scale-95">
+                                    <button onClick={handleSaveAll} disabled={updating} className="px-8 py-3.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                         Save Profile Settings
                                     </button>
@@ -512,10 +512,10 @@ const ClientSettingsPage = () => {
                     <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 mb-8">
                         <div className="flex items-center gap-3 mb-8">
                             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Project Selection</h2>
+                            <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-inter">Project Selection</h2>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
+                            <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">Active Project</label>
                             <select
                                 value={activeProjectId ?? ''}
                                 onChange={(e) => {
@@ -547,7 +547,7 @@ const ClientSettingsPage = () => {
                         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                             <div className="flex items-center gap-3 mb-8">
                                 <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Notification Settings</h2>
+                                <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-inter">Notification Settings</h2>
                             </div>
                             <div className="space-y-4">
                                 {[
@@ -587,12 +587,12 @@ const ClientSettingsPage = () => {
                             <div className="space-y-10">
                                 <div className="flex items-center gap-3 mb-2">
                                     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                    <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">User Preferences</h2>
+                                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-inter">User Preferences</h2>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
+                                        <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">Language</label>
                                         <select
                                             value={settings.preferences?.language || "English"}
                                             onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, language: e.target.value } }))}
@@ -605,7 +605,7 @@ const ClientSettingsPage = () => {
 
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Timezone</label>
+                                            <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">Timezone</label>
                                             <select
                                                 value={settings.preferences?.timezone || "IST (UTC+5:30)"}
                                                 onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, timezone: e.target.value } }))}
@@ -618,7 +618,7 @@ const ClientSettingsPage = () => {
                                             </select>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Date Format</label>
+                                            <label className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider ml-1 font-inter">Date Format</label>
                                             <select
                                                 value={settings.preferences?.date_format || "DD/MM/YYYY"}
                                                 onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, date_format: e.target.value } }))}

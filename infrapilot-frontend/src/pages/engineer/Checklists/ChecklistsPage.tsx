@@ -152,6 +152,26 @@ const ChecklistsPage = () => {
         fetchData();
     }, [fetchData]);
 
+        const resetNewChecklistForm = () => {
+        setNewChecklistName("");
+        setNewChecklistProjectId(projectId ? projectId.toString() : "");
+        setNewChecklistType("Daily Checklist");
+        setNewChecklistItems([]);
+        setTempItemText("");
+        setErrors({});
+        setFormNotification(null);
+    };
+
+    const handleOpenNewModal = () => {
+        resetNewChecklistForm();
+        setIsNewModalOpen(true);
+    };
+
+    const handleCloseNewModal = () => {
+        resetNewChecklistForm();
+        setIsNewModalOpen(false);
+    };
+
     const handleCreateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
         const newErrors: Record<string, string> = {};
@@ -208,12 +228,7 @@ const ChecklistsPage = () => {
             }
             setActiveTab(newChecklistType as any);
             await fetchData();
-            setIsNewModalOpen(false);
-            setNewChecklistName("");
-            setNewChecklistProjectId("");
-            setNewChecklistItems([]);
-            setFormNotification(null);
-            setErrors({});
+            handleCloseNewModal();
         } catch (err) {
             let errorMsg = "Failed to create checklist";
             if ((err as any)?.response?.status === 500) {
@@ -586,7 +601,7 @@ const ChecklistsPage = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <button
-                            onClick={() => setIsNewModalOpen(true)}
+                            onClick={handleOpenNewModal}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
                             New Checklist
@@ -653,8 +668,8 @@ const ChecklistsPage = () => {
                                 setCurrentPage(1);
                             }}
                             className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === tab
-                                ? "bg-slate-800 text-white shadow-lg scale-105"
-                                : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                                ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm scale-105 font-black"
+                                : "bg-white text-slate-500 border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
                                 }`}
                         >
                             {tab === "All" ? `All Checklists (${checklists.length})` : tab}
@@ -940,14 +955,14 @@ const ChecklistsPage = () => {
             {/* Modal 1: New Checklist */}
             <Modal
                 isOpen={isNewModalOpen}
-                onClose={() => setIsNewModalOpen(false)}
+                onClose={handleCloseNewModal}
                 title="Create Checklist"
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 font-inter">
                         <button
                             type="button"
-                            onClick={() => setIsNewModalOpen(false)}
+                            onClick={handleCloseNewModal}
                             className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center"
                         >
                             Cancel
@@ -1122,11 +1137,11 @@ const ChecklistsPage = () => {
                 title="Update Technical Protocol"
                 maxWidth="max-w-xl"
                 footer={
-                    <>
+                    <div className="flex items-center justify-end gap-3 font-inter">
                         <button
                             type="button"
                             onClick={() => setIsEditChecklistModalOpen(false)}
-                            className="px-5 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter"
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center"
                         >
                             Cancel
                         </button>
@@ -1134,11 +1149,11 @@ const ChecklistsPage = () => {
                             type="button"
                             onClick={handleUpdateChecklist}
                             disabled={isSubmitting}
-                            className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md shadow-primary/25 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center"
                         >
                             {isSubmitting ? "Syncing..." : "Update Protocol"}
                         </button>
-                    </>
+                    </div>
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
