@@ -49,7 +49,7 @@ const ChecklistsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
 
     // Interactive StatCard Filter
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done" | "Active" | "Inactive">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -63,6 +63,7 @@ const ChecklistsPage = () => {
 
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
+    const [createdChecklistId, setCreatedChecklistId] = useState<number | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
     const [newChecklistType, setNewChecklistType] = useState("");
     const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
@@ -130,10 +131,16 @@ const ChecklistsPage = () => {
             const localSaved = localStorage.getItem("created_checklists");
             const localChecklists = localSaved ? JSON.parse(localSaved) : [];
             const combined = [...clRes];
-            const existingIds = new Set(combined.map(c => c.id));
+            const existingIds = new Set(combined.map(c => Number(c.id)));
             localChecklists.forEach((c: any) => {
-                if (!existingIds.has(c.id)) {
-                    combined.unshift(c);
+                if (!existingIds.has(Number(c.id))) {
+                    const isDuplicate = combined.some(existing => 
+                        Number(existing.project_id) === Number(c.project_id) && 
+                        existing.name?.trim().toLowerCase() === c.name?.trim().toLowerCase()
+                    );
+                    if (!isDuplicate) {
+                        combined.unshift(c);
+                    }
                 }
             });
 
@@ -160,6 +167,7 @@ const ChecklistsPage = () => {
         setTempItemText("");
         setErrors({});
         setFormNotification(null);
+        setCreatedChecklistId(null);
     };
 
     const handleOpenNewModal = () => {
@@ -175,9 +183,18 @@ const ChecklistsPage = () => {
     const handleCreateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
         const newErrors: Record<string, string> = {};
-        if (!newChecklistProjectId) newErrors.project_id = "Project is required";
-        if (!newChecklistName.trim()) newErrors.name = "Name is required";
-        if (newChecklistItems.length === 0) newErrors.items = "At least one verification point is required";
+        if (!newChecklistProjectId || !newChecklistProjectId.toString().trim()) {
+            newErrors.project_id = "Project Context is required";
+        }
+        if (!newChecklistName || !newChecklistName.trim()) {
+            newErrors.name = "Descriptive Title is required";
+        }
+        if (!newChecklistType || !newChecklistType.trim() || newChecklistType === "Select Category") {
+            newErrors.type = "Domain Category is required";
+        }
+        if (newChecklistItems.length === 0) {
+            newErrors.items = "At least one verification point is required";
+        }
 
         setErrors(newErrors);
 
@@ -185,7 +202,8 @@ const ChecklistsPage = () => {
             const missingFields = [];
             if (newErrors.project_id) missingFields.push("Project Context");
             if (newErrors.name) missingFields.push("Descriptive Title");
-            if (newErrors.items) missingFields.push("Verification Points (at least one verification point required)");
+            if (newErrors.type) missingFields.push("Domain Category");
+            if (newErrors.items) missingFields.push("Verification Points");
             
             const errorMsg = `Mandatory fields required: ${missingFields.join(", ")}`;
             setFormNotification({ type: 'error', message: errorMsg });
@@ -194,28 +212,63 @@ const ChecklistsPage = () => {
         }
         setFormNotification(null);
 
+        if (isSubmitting) return;
         setIsSubmitting(true);
         try {
-            const created = await checklistService.createChecklist({
-                project_id: Number(newChecklistProjectId),
-                name: newChecklistName,
-                type: newChecklistType
-            });
+            let targetChecklist: ChecklistItem | null = null;
+            if (createdChecklistId) {
+                targetChecklist = checklists.find(c => c.id === createdChecklistId) || null;
+            }
+            if (!targetChecklist) {
+                // Avoid creating duplicate checklist if already exists for this project
+                const existing = checklists.find(c => 
+                    Number(c.project_id) === Number(newChecklistProjectId) && 
+                    c.name?.trim().toLowerCase() === newChecklistName.trim().toLowerCase() &&
+                    c.type?.trim().toLowerCase() === newChecklistType.trim().toLowerCase()
+                );
+                if (existing) {
+                    targetChecklist = existing;
+                    setCreatedChecklistId(existing.id);
+                } else {
+                    const created = await checklistService.createChecklist({
+                        project_id: Number(newChecklistProjectId),
+                        name: newChecklistName.trim(),
+                        type: newChecklistType.trim()
+                    });
+                    targetChecklist = created;
+                    setCreatedChecklistId(created.id);
+                }
+            }
+
+            // Fetch existing items if reusing checklist to avoid adding duplicate items
+            let existingItemNames: string[] = [];
+            try {
+                const existingItems = await checklistService.getItems(targetChecklist.id);
+                existingItemNames = (existingItems || []).map(i => (i.item || '').trim().toLowerCase());
+            } catch {
+                // ignore
+            }
 
             for (const item of newChecklistItems) {
                 const itemText = item.trim().length > 255 ? item.trim().slice(0, 255) : item.trim();
-                await checklistService.addItem({
-                    checklist_id: created.id,
-                    item: itemText
-                });
+                if (!existingItemNames.includes(itemText.toLowerCase())) {
+                    await checklistService.addItem({
+                        checklist_id: targetChecklist.id,
+                        item: itemText
+                    });
+                }
             }
 
-            // Save to localStorage for robust virtual/fallback persistence
+            // Save to localStorage for robust virtual/fallback persistence without duplicates
             try {
                 const localSaved = localStorage.getItem("created_checklists");
                 const localChecklists = localSaved ? JSON.parse(localSaved) : [];
-                localChecklists.unshift(created);
-                localStorage.setItem("created_checklists", JSON.stringify(localChecklists));
+                const filteredLocal = localChecklists.filter((c: any) => 
+                    c.id !== targetChecklist!.id && 
+                    !(Number(c.project_id) === Number(newChecklistProjectId) && c.name?.trim().toLowerCase() === newChecklistName.trim().toLowerCase())
+                );
+                filteredLocal.unshift(targetChecklist);
+                localStorage.setItem("created_checklists", JSON.stringify(filteredLocal));
             } catch (err) {
                 console.error("Failed to save created checklist to localStorage", err);
             }
@@ -227,16 +280,50 @@ const ChecklistsPage = () => {
                 }
             }
             setActiveTab(newChecklistType as any);
+            setCreatedChecklistId(null);
             await fetchData();
             handleCloseNewModal();
-        } catch (err) {
+        } catch (err: any) {
             let errorMsg = "Failed to create checklist";
-            if ((err as any)?.response?.status === 500) {
+            if (err?.response?.status === 500) {
                 errorMsg = "Database error: Checklist item text may be too long (max 255 characters).";
-            } else if ((err as any)?.response?.data?.detail) {
-                errorMsg = typeof (err as any).response.data.detail === "string" 
-                    ? (err as any).response.data.detail 
-                    : JSON.stringify((err as any).response.data.detail);
+            } else if (err?.response?.data?.detail) {
+                const detail = err.response.data.detail;
+                if (typeof detail === "string") {
+                    errorMsg = detail.replace(/^Value error,\s*/i, "");
+                } else if (Array.isArray(detail)) {
+                    const backendFieldErrors: Record<string, string> = {};
+                    const messages = detail.map((d: any) => {
+                        if (typeof d === "string") return d;
+                        const rawField = Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : (d?.loc || "");
+                        const cleanField = rawField === "type" 
+                            ? "Domain Category" 
+                            : rawField === "name" 
+                                ? "Descriptive Title" 
+                                : rawField === "project_id" 
+                                    ? "Project Context" 
+                                    : rawField === "item" 
+                                        ? "Verification Point" 
+                                        : rawField;
+                        let msg = d?.msg || "Field cannot be empty";
+                        msg = msg.replace(/^Value error,\s*/i, "");
+                        if (rawField === "type") backendFieldErrors.type = `Domain Category: ${msg}`;
+                        else if (rawField === "name") backendFieldErrors.name = `Descriptive Title: ${msg}`;
+                        else if (rawField === "project_id") backendFieldErrors.project_id = `Project: ${msg}`;
+                        else if (rawField) backendFieldErrors[rawField] = msg;
+                        return cleanField ? `${cleanField}: ${msg}` : msg;
+                    });
+                    errorMsg = messages.join(". ");
+                    if (Object.keys(backendFieldErrors).length > 0) {
+                        setErrors(prev => ({ ...prev, ...backendFieldErrors }));
+                    }
+                } else if (typeof detail === "object") {
+                    errorMsg = Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join(", ");
+                }
+            } else if (err?.response?.data?.message) {
+                errorMsg = err.response.data.message;
+            } else if (err?.message) {
+                errorMsg = err.message;
             }
             toast.error(errorMsg);
             setFormNotification({ type: 'error', message: errorMsg });
@@ -529,17 +616,22 @@ const ChecklistsPage = () => {
         return cls.filter(cl => {
             const latestLog = [...logs].sort((a, b) => b.id - a.id).find(l => l.checklist_id === cl.id);
             const isDone = latestLog?.status === 'Done' || latestLog?.status === 'DONE' || latestLog?.status === 'Passed';
+            const isActive = (cl as any).is_active !== false;
 
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const statusText = isDone ? 'done' : 'pending';
+                const activeText = isActive ? 'active' : 'inactive';
                 const remarksText = (latestLog?.remarks || '').toLowerCase();
+                const projName = getProjectName(cl.project_id).toLowerCase();
 
-                const matchesName = cl.name.toLowerCase().includes(term);
+                const matchesName = (cl.name || '').toLowerCase().includes(term);
                 const matchesStatus = statusText.includes(term);
+                const matchesActive = activeText.includes(term);
                 const matchesRemarks = remarksText.includes(term);
+                const matchesProj = projName.includes(term);
 
-                if (!matchesName && !matchesStatus && !matchesRemarks) {
+                if (!matchesName && !matchesStatus && !matchesActive && !matchesRemarks && !matchesProj) {
                     return false;
                 }
             }
@@ -547,6 +639,8 @@ const ChecklistsPage = () => {
             if (activeStatFilter !== "All") {
                 if (activeStatFilter === "Done" && !isDone) return false;
                 if (activeStatFilter === "Pending" && isDone) return false;
+                if (activeStatFilter === "Active" && !isActive) return false;
+                if (activeStatFilter === "Inactive" && isActive) return false;
             }
 
             return true;
@@ -689,9 +783,14 @@ const ChecklistsPage = () => {
                                     <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
                                         <div className="flex-1 font-inter">
                                             <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
-                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${(cl.type && typeColors[cl.type.toLowerCase()]) || "bg-slate-50 text-slate-400"}`}>
-                                                {cl.type}
-                                            </span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${(cl.type && typeColors[cl.type.toLowerCase()]) || "bg-slate-50 text-slate-400"}`}>
+                                                    {cl.type}
+                                                </span>
+                                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border font-inter ${(cl as any).is_active !== false ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                    {(cl as any).is_active !== false ? 'ACTIVE' : 'INACTIVE'}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all duration-500 font-inter">
                                             <ClipboardList className="w-5 h-5" />
@@ -766,6 +865,8 @@ const ChecklistsPage = () => {
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer font-inter uppercase tracking-widest min-w-[140px]"
                                 >
                                     <option value="All">ALL</option>
+                                    <option value="Active">ACTIVE</option>
+                                    <option value="Inactive">INACTIVE</option>
                                     <option value="Done">DONE</option>
                                     <option value="Pending">PENDING</option>
                                 </select>
@@ -782,6 +883,7 @@ const ChecklistsPage = () => {
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Protocol Identity</th>
                                         <th className="px-6 py-4 font-inter">Project Name</th>
+                                        <th className="px-6 py-4 font-inter">Status</th>
                                         <th className="px-6 py-4 font-inter">Compliance Profile</th>
                                         <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
                                         <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
@@ -805,6 +907,11 @@ const ChecklistsPage = () => {
                                                     <td className="px-6 py-4 font-inter whitespace-nowrap">
                                                         <span className="text-xs font-bold text-slate-700 font-inter">
                                                             {getProjectName(cl.project_id)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter whitespace-nowrap">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${(cl as any).is_active !== false ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                            {(cl as any).is_active !== false ? 'ACTIVE' : 'INACTIVE'}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
@@ -857,7 +964,7 @@ const ChecklistsPage = () => {
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                            <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                 No checklists discovered in the project vault.
                                             </td>
                                         </tr>
@@ -1006,7 +1113,12 @@ const ChecklistsPage = () => {
                                     label="Project Context"
                                     required
                                     value={newChecklistProjectId?.toString() || ""}
-                                    onChange={(val) => setNewChecklistProjectId(val)}
+                                    onChange={(val) => {
+                                        setNewChecklistProjectId(val);
+                                        if (errors.project_id) {
+                                            setErrors(prev => { const next = { ...prev }; delete next.project_id; return next; });
+                                        }
+                                    }}
                                     options={projects.map(p => ({
                                         id: (p.id || p.project_id).toString(),
                                         label: p.name || p.project_name || `Project #${p.id || p.project_id}`
@@ -1022,8 +1134,13 @@ const ChecklistsPage = () => {
                                 <input
                                     type="text"
                                     value={newChecklistName}
-                                    onChange={(e) => setNewChecklistName(e.target.value)}
-                                    placeholder=""
+                                    onChange={(e) => {
+                                        setNewChecklistName(e.target.value);
+                                        if (errors.name) {
+                                            setErrors(prev => { const next = { ...prev }; delete next.name; return next; });
+                                        }
+                                    }}
+                                    placeholder="Enter descriptive title..."
                                     className={inputClasses}
                                 />
                                 {errors.name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.name}</p>}
@@ -1032,7 +1149,12 @@ const ChecklistsPage = () => {
                                 <CustomSelect
                                     label="Domain Category"
                                     value={newChecklistType}
-                                    onChange={(val) => setNewChecklistType(val)}
+                                    onChange={(val) => {
+                                        setNewChecklistType(val);
+                                        if (errors.type) {
+                                            setErrors(prev => { const next = { ...prev }; delete next.type; return next; });
+                                        }
+                                    }}
                                     options={[
                                         { id: 'Daily Checklist', label: 'Daily Checklist' },
                                         { id: 'Activity Checklist', label: 'Activity Checklist' }
@@ -1198,7 +1320,7 @@ const ChecklistsPage = () => {
                                     type="text"
                                     value={editChecklistName}
                                     onChange={(e) => setEditChecklistName(e.target.value)}
-                                    placeholder=""
+                                    placeholder="Enter descriptive title..."
                                     className={inputClasses}
                                 />
                             </div>
@@ -1208,7 +1330,7 @@ const ChecklistsPage = () => {
                                     rows={3}
                                     value={editChecklistDescription}
                                     onChange={(e) => setEditChecklistDescription(e.target.value)}
-                                    placeholder=""
+                                    placeholder="Enter description..."
                                     className={inputClasses + " resize-none"}
                                 />
                             </div>

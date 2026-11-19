@@ -535,12 +535,13 @@ const ApprovalsPage = () => {
       >
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
             <CustomSelect
               value={createForm.entity_type}
               onChange={(val) => setCreateForm(p => ({ ...p, entity_type: val, entity_id: "" }))}
               options={ENTITY_TYPES.map(et => ({ id: et.value, label: et.label }))}
               placeholder="Select Entity Type"
+              placement="bottom"
               maxHeight="max-h-48"
             />
           </div>
@@ -586,7 +587,7 @@ const ApprovalsPage = () => {
             })()}
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Remarks</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Remarks</label>
             <textarea
               value={createForm.remarks}
               onChange={e => setCreateForm(p => ({ ...p, remarks: e.target.value }))}

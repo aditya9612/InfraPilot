@@ -7,6 +7,7 @@ import { CustomSelect } from "../../components/common/CustomDropdown";
 import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
+import { userService } from "../../services/userService";
 import { projectService } from "../../services/projectService";
 import { useProject } from "../../context/ProjectContext";
 import type {
@@ -55,7 +56,7 @@ const SectionHeader = ({
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const isAdmin = user?.role === "Admin";
     const initialJoiningDateRef = useRef<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -253,6 +254,12 @@ const SettingsPage = () => {
             const resolvedPath = settingsService.resolveUrl(profileRes.profile_image);
             console.log("Settings Refresh - Resolved Image URL:", resolvedPath);
             setProfileImage(resolvedPath);
+            if (profileRes.profile_image) {
+                refreshUser({
+                    name: profileRes.full_name || user?.name,
+                    profile_image: profileRes.profile_image
+                });
+            }
 
             console.log("Data sync complete:", { settingsRes, profileRes });
         } catch (error) {
@@ -273,15 +280,43 @@ const SettingsPage = () => {
             setSelectedFile(file);
             const imageUrl = URL.createObjectURL(file);
             setProfileImage(imageUrl);
+            refreshUser({ profile_image: imageUrl });
             toast.success("Profile photo selected.");
         }
     };
 
-    const handleRemoveImage = () => {
+    const handleRemoveImage = async () => {
         setProfileImage(null);
         setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        toast.success("Profile photo removed.");
+        if (profile) setProfile({ ...profile, profile_image: null });
+        refreshUser({ profile_image: null });
+
+        if (profile?.profile_image) {
+            try {
+                const profileData: any = {
+                    full_name: profile.full_name || "",
+                    role: profile.role || "",
+                    mobile_number: (profile.mobile_number || "").replace(/\D/g, ""),
+                    email: profile.email || "",
+                    address: profile.address || "",
+                    pan_number: (profile.pan_number || "").toUpperCase(),
+                    aadhaar_number: (profile.aadhaar_number || "").replace(/\D/g, ""),
+                    designation: profile.designation || "",
+                    joining_date: !isAdmin && initialJoiningDateRef.current ? initialJoiningDateRef.current : (profile.joining_date || ""),
+                    is_active: profile.is_active,
+                    profile_image: null
+                };
+                const updated = await settingsService.updateProfile(profileData);
+                setProfile(updated);
+                toast.success("Profile photo removed.");
+            } catch (err) {
+                console.error("Failed to remove profile photo from server", err);
+                toast.error("Failed to remove profile photo from server.");
+            }
+        } else {
+            toast.success("Profile photo removed.");
+        }
     };
 
     const unitOptions = {
@@ -362,8 +397,8 @@ const SettingsPage = () => {
                 designation: profile.designation || "",
                 joining_date: !isAdmin && initialJoiningDateRef.current ? initialJoiningDateRef.current : (profile.joining_date || ""),
                 is_active: profile.is_active,
-                // Include the actual file if selected
-                profile_image: selectedFile || undefined
+                // Include the actual file if selected, or null if explicitly cleared
+                profile_image: selectedFile ? selectedFile : (profileImage === null ? null : undefined)
             };
 
             console.log("Syncing All Settings...", { settingsData, profileData });
@@ -373,13 +408,29 @@ const SettingsPage = () => {
                 settingsService.updateProfile(profileData)
             ]);
 
+            const targetUserId = Number(profile.user_id || user?.user_id || (user as any)?.id || 0);
+            if (targetUserId > 0 && profile.is_active !== undefined) {
+                try {
+                    await userService.updateUser(targetUserId, { is_active: profile.is_active } as any);
+                } catch (e) {
+                    console.warn("Failed to update user is_active via userService:", e);
+                }
+            }
+
             console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);
 
             // Update local state immediately with returned data from API
             setSettings(updatedSettings);
             setProfile(updatedProfile);
-            setProfileImage(settingsService.resolveUrl(updatedProfile.profile_image));
+            const resolvedImg = updatedProfile.profile_image ? settingsService.resolveUrl(updatedProfile.profile_image) : null;
+            setProfileImage(resolvedImg);
             setSelectedFile(null);
+
+            // Synchronize updated photo and name across header and sidebar
+            refreshUser({
+                name: updatedProfile.full_name || profile.full_name || user?.name,
+                profile_image: updatedProfile.profile_image || null
+            });
 
             // Refetch fresh configurations from backend to keep everything fully synced
             await fetchData();
@@ -509,6 +560,7 @@ const SettingsPage = () => {
                                 </div>
                                 {profileImage && (
                                     <button
+                                        type="button"
                                         onClick={handleRemoveImage}
                                         className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
                                     >

@@ -264,10 +264,21 @@ export const drawingService = {
                 }
             }
 
+            // Extract original filename from Content-Disposition header if available
+            let headerFileName = '';
+            const disposition = response.headers?.['content-disposition'] || (response.headers?.get ? response.headers.get('content-disposition') : null);
+            if (disposition) {
+                const match = String(disposition).match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (match && match[1]) {
+                    headerFileName = match[1].replace(/['"]/g, '').trim();
+                }
+            }
+
             const url = window.URL.createObjectURL(rawBlob);
             const link = document.createElement('a');
             link.href = url;
-            const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;
+            const resolvedBaseName = headerFileName || fileName;
+            const finalName = resolvedBaseName ? (resolvedBaseName.includes('.') ? resolvedBaseName : `${resolvedBaseName}.${extension}`) : `document_${id}.${extension}`;
             link.setAttribute('download', finalName);
             document.body.appendChild(link);
             link.click();

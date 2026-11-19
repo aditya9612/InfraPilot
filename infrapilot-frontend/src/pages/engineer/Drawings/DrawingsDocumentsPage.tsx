@@ -171,6 +171,32 @@ const DrawingsDocumentsPage = () => {
         return found ? (found.project_name || found.name) : (fallbackName || `Project #${pId}`);
     }, [projects]);
 
+    const formatDateTime = useCallback((rawDate?: string) => {
+        if (!rawDate || rawDate === "null" || rawDate === "undefined") return "—";
+        try {
+            const d = new Date(rawDate);
+            if (isNaN(d.getTime())) return rawDate;
+            const hasTime = rawDate.includes("T") || (rawDate.includes(":") && !rawDate.match(/^\d{4}-\d{2}-\d{2}$/));
+            if (hasTime) {
+                return d.toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                });
+            }
+            return d.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            });
+        } catch {
+            return rawDate;
+        }
+    }, []);
+
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -590,11 +616,12 @@ const DrawingsDocumentsPage = () => {
         setIsSubmitting(true);
         const toastId = toast.loading("Creating document...");
         try {
+            const finalTitle = (docCreateFormData.title || "").trim() || (docCreateFormData.file ? docCreateFormData.file.name.replace(/\.[^/.]+$/, '') : 'Document');
             await documentService.uploadDocument({
                 project_id: docCreateFormData.project_id || projectId || 0,
-                title: docCreateFormData.title,
+                title: finalTitle,
                 document_type: docCreateFormData.document_type || "Other",
-                parent_id: docCreateFormData.parent_id ? Number(docCreateFormData.parent_id) : currentParentId || null,
+                parent_id: currentParentId || null,
                 remarks: docCreateFormData.remarks,
                 file: docCreateFormData.file
             });
@@ -647,14 +674,35 @@ const DrawingsDocumentsPage = () => {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                // Check Content-Disposition header for original filename
+                let serverFileName = "";
+                const disposition = response.headers.get("content-disposition");
+                if (disposition) {
+                    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (match && match[1]) {
+                        serverFileName = match[1].replace(/['"]/g, '').trim();
+                    }
+                }
+
                 const blob = await response.blob();
                 const objectUrl = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = objectUrl;
-                const extension = file_url.replace(/\\/g, '/').split('.').pop()?.split('?')[0] || '';
-                const downloadName = (drawing.title || drawing.drawing_name || 'document').toLowerCase().endsWith(`.${extension.toLowerCase()}`)
-                    ? (drawing.title || drawing.drawing_name || 'document')
-                    : `${drawing.title || drawing.drawing_name || 'document'}.${extension}`;
+
+                const extension = (serverFileName || file_url).replace(/\\/g, '/').split('.').pop()?.split('?')[0] || 'pdf';
+                
+                // Priority: server original filename > document title > drawing name > 'document'
+                let chosenName = serverFileName;
+                if (!chosenName) {
+                    const candidateTitle = (drawing.title && drawing.title.trim()) || (drawing.drawing_name && drawing.drawing_name.trim());
+                    chosenName = candidateTitle || 'document';
+                }
+
+                const downloadName = chosenName.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+                    ? chosenName
+                    : `${chosenName}.${extension}`;
+
                 link.download = downloadName;
                 document.body.appendChild(link);
                 link.click();
@@ -666,7 +714,8 @@ const DrawingsDocumentsPage = () => {
 
             const originalUrl = drawing.file_url || drawing.upload_file;
             const drawingId = drawing.id || (drawing as any).drawing_id || (drawing as any).document_id;
-            await drawingService.downloadDocument(drawingId, drawing.drawing_name, originalUrl);
+            const targetName = (drawing.title && drawing.title.trim()) || (drawing.drawing_name && drawing.drawing_name.trim()) || undefined;
+            await drawingService.downloadDocument(drawingId, targetName, originalUrl);
             toast.success("Download successful", { id: toastId });
         } catch (error) {
             toast.error("Failed to download document", { id: toastId });
@@ -939,7 +988,7 @@ const DrawingsDocumentsPage = () => {
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by document name or ID..."
+                                placeholder="Search by drawing name or document name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
@@ -993,7 +1042,7 @@ const DrawingsDocumentsPage = () => {
                                             <th className="px-4 py-4 text-slate-700 font-inter">Document Type</th>
                                             <th className="px-4 py-4 text-slate-700 font-inter">Version</th>
                                             <th className="px-4 py-4 text-slate-700 font-inter">Status</th>
-                                            <th className="px-4 py-4 text-slate-700 font-inter">Uploaded At</th>
+                                            <th className="px-4 py-4 text-slate-700 font-inter">Updated At</th>
                                             <th className="px-4 py-4 text-slate-700 font-inter">Remarks</th>
                                             <th className="px-4 py-4 text-right text-slate-700 font-inter">Actions</th>
                                         </tr>
@@ -1011,16 +1060,18 @@ const DrawingsDocumentsPage = () => {
                                         ) : paginatedDrawings.length > 0 ? (
                                             paginatedDrawings.map((drawing: any, index) => (
                                                 <tr key={`doc_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter text-[11px] font-medium text-slate-600">
-                                                    <td className="px-4 py-3">{drawing.project_name}</td>
-                                                    <td className="px-4 py-3 font-bold text-slate-800">
-                                                        {drawing.is_folder ? (
-                                                            <button onClick={() => handleFolderClick(drawing)} className="text-indigo-600 hover:underline">{drawing.title || drawing.drawing_name}</button>
-                                                        ) : (
-                                                            drawing.title || drawing.drawing_name
-                                                        )}
+                                                    <td className="px-4 py-3">{getProjectName(drawing.project_id, drawing.project_name) || "—"}</td>
+                                                    <td className="px-4 py-3 font-bold text-slate-800 max-w-[260px]">
+                                                        <div className="truncate max-w-[260px]" title={drawing.title || drawing.drawing_name}>
+                                                            {drawing.is_folder ? (
+                                                                <button onClick={() => handleFolderClick(drawing)} className="text-indigo-600 hover:underline">{drawing.title || drawing.drawing_name}</button>
+                                                            ) : (
+                                                                drawing.title || drawing.drawing_name
+                                                            )}
+                                                        </div>
                                                     </td>
-                                                    <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
-                                                    <td className="px-4 py-3">{drawing.version}</td>
+                                                    <td className="px-4 py-3">{(!drawing.document_type || drawing.document_type === "null") ? "—" : String(drawing.document_type)}</td>
+                                                    <td className="px-4 py-3">{drawing.version || "v1.0"}</td>
                                                     <td className="px-4 py-3">
                                                         {(() => {
                                                             const st = resolveApprovalStatus(drawing);
@@ -1041,8 +1092,12 @@ const DrawingsDocumentsPage = () => {
                                                             );
                                                         })()}
                                                     </td>
-                                                    <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
-                                                    <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        {formatDateTime(drawing.updated_at || drawing.uploaded_at || drawing.date || (drawing as any).created_at)}
+                                                    </td>
+                                                    <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>
+                                                        {(!drawing.remarks || drawing.remarks === "null" || !drawing.remarks.trim()) ? "—" : drawing.remarks}
+                                                    </td>
                                                     <td className="px-4 py-3 text-right">
                                                         <div className="flex items-center justify-end gap-1.5 font-inter">
                                                             <button onClick={() => handleViewDocument(drawing)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Details">
@@ -1077,7 +1132,7 @@ const DrawingsDocumentsPage = () => {
                                             <th className="px-6 py-4 font-inter text-slate-700">Project Name</th>
                                             <th className="px-6 py-4 font-inter text-slate-700">Version Profile</th>
                                             <th className="px-4 py-4 font-inter text-slate-700">Approval Status</th>
-                                            <th className="px-6 py-4 font-inter text-slate-700">Vault Date</th>
+                                            <th className="px-6 py-4 font-inter text-slate-700">Updated At</th>
                                             <th className="px-6 py-4 text-right font-inter text-slate-700">Actions</th>
                                         </tr>
                                     </thead>
@@ -1151,17 +1206,20 @@ const DrawingsDocumentsPage = () => {
                                                             );
                                                         })()}
                                                     </td>
-                                                    <td className="px-6 py-4 font-inter">
-                                                        <div className="flex flex-col font-inter">
+                                                    <td className="px-6 py-4 font-inter max-w-[260px]">
+                                                        <div className="flex flex-col font-inter max-w-[260px]">
                                                             {(drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") ? (
                                                                 <button
                                                                     onClick={() => handleFolderClick(drawing)}
-                                                                    className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
+                                                                    className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter truncate block max-w-[260px]"
+                                                                    title={drawing.drawing_name}
                                                                 >
                                                                     {drawing.drawing_name}
                                                                 </button>
                                                             ) : (
-                                                                <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
+                                                                <span className="text-sm font-bold text-slate-800 font-inter truncate block max-w-[260px]" title={drawing.drawing_name}>
+                                                                    {drawing.drawing_name}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </td>
@@ -1195,8 +1253,10 @@ const DrawingsDocumentsPage = () => {
                                                             );
                                                         })()}
                                                     </td>
-                                                    <td className="px-6 py-4 font-inter">
-                                                        <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
+                                                    <td className="px-6 py-4 font-inter whitespace-nowrap">
+                                                        <span className="text-xs font-bold text-slate-500 font-inter">
+                                                            {formatDateTime(drawing.updated_at || drawing.date || drawing.uploaded_at || (drawing as any).created_at)}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right font-inter">
                                                         <div className="flex items-center justify-end gap-1.5 font-inter">
@@ -1328,17 +1388,28 @@ const DrawingsDocumentsPage = () => {
                 title={isEditMode ? "Modify Drawing Metadata" : "Commit New Drawing Asset"}
                 maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                    <div className="flex items-center justify-end gap-3 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => setIsFormModalOpen(false)}
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center"
+                        >
                             Cancel
                         </button>
                         <button
                             form="drawing-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold shadow-md shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? "Saving..." : (isEditMode ? "Edit Drawings" : "Save Drawings")}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Saving...</span>
+                                </>
+                            ) : (
+                                isEditMode ? "Edit Drawing" : "Save Drawing"
+                            )}
                         </button>
                     </div>
                 }
@@ -1381,13 +1452,13 @@ const DrawingsDocumentsPage = () => {
 
                             <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
                                 <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
-                                <input name="drawing_name" maxLength={100} value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} />
+                                <input name="drawing_name" maxLength={100} value={formData.drawing_name} onChange={handleInputChange} className={inputClasses(errors.drawing_name)} placeholder="e.g., Architectural Floor Plan" />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
                             </div>
 
                             <div className="font-inter">
                                 <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
-                                <input name="version" maxLength={30} value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} />
+                                <input name="version" maxLength={30} value={formData.version} onChange={handleInputChange} className={inputClasses(errors.version)} placeholder="e.g., v1.0" />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
 
@@ -1398,13 +1469,13 @@ const DrawingsDocumentsPage = () => {
 
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Remarks</label>
-                                <textarea name="remarks" maxLength={500} rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
+                                <textarea name="remarks" maxLength={500} rows={3} value={formData.remarks} onChange={handleInputChange} className={`${inputClasses(errors.remarks)} resize-none font-bold`} placeholder="Enter remarks or notes..." />
                             </div>
 
                             {!isEditMode && (
                                 <div className="font-inter md:col-span-2">
                                     <label className={labelClasses}>Parent ID</label>
-                                    <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} />
+                                    <input name="parent_id" type="number" value={formData.parent_id} onChange={handleInputChange} className={inputClasses(errors.parent_id)} placeholder="e.g., 101 or leave blank for root" />
                                 </div>
                             )}
 
@@ -1556,11 +1627,11 @@ const DrawingsDocumentsPage = () => {
                 title="Create Folder"
                 maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                    <div className="flex items-center justify-end gap-3 font-inter">
                         <button
                             type="button"
                             onClick={() => setIsFolderModalOpen(false)}
-                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50"
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -1568,7 +1639,7 @@ const DrawingsDocumentsPage = () => {
                             form="folder-form"
                             type="submit"
                             disabled={isSubmitting || !folderFormData.title}
-                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2"
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold shadow-md shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center gap-2"
                         >
                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Folder"}
                         </button>
@@ -1653,9 +1724,9 @@ const DrawingsDocumentsPage = () => {
             {/* ── Document Edit Modal ────────────────────────────────────────────────────────── */}
             <Modal isOpen={isDocEditModalOpen} onClose={() => setIsDocEditModalOpen(false)} title="Update Document" maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-end gap-3 font-inter">
+                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold shadow-md shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center gap-2">
                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Edit Document"}
                         </button>
                     </div>
@@ -1685,11 +1756,25 @@ const DrawingsDocumentsPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
-                                <input type="text" className={inputClasses()} value={docEditFormData.title} onChange={e => setDocEditFormData({ ...docEditFormData, title: e.target.value })} required />
+                                <input type="text" className={inputClasses()} value={docEditFormData.title} onChange={e => setDocEditFormData({ ...docEditFormData, title: e.target.value })} required placeholder="e.g., Site Contract" />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
+                            <div className="font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Document Type"
+                                    value={docEditFormData.document_type || ""}
+                                    onChange={(val) => setDocEditFormData({ ...docEditFormData, document_type: val })}
+                                    options={[
+                                        { id: "", label: "Select Type (Optional)" },
+                                        { id: "General", label: "General" },
+                                        { id: "Drawing", label: "Drawing" },
+                                        { id: "Contract", label: "Contract" },
+                                        { id: "Invoice", label: "Invoice" },
+                                        { id: "Report", label: "Report" },
+                                        { id: "Blueprint", label: "Blueprint" },
+                                        { id: "Other", label: "Other" }
+                                    ]}
+                                    placeholder="Select Type (Optional)"
+                                />
                             </div>
                             <div className="font-inter z-[66] relative">
                                 <CustomSelect
@@ -1709,7 +1794,30 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Update File</label>
-                                <input type="file" className={inputClasses()} onChange={e => setDocEditFormData({ ...docEditFormData, file: e.target.files?.[0] || null })} />
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="edit-doc-file-input"
+                                        className="sr-only"
+                                        onChange={e => setDocEditFormData({ ...docEditFormData, file: e.target.files?.[0] || null })}
+                                    />
+                                    <label
+                                        htmlFor="edit-doc-file-input"
+                                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm flex items-center justify-between cursor-pointer hover:bg-slate-100/60 transition-all font-inter ${
+                                            docEditFormData.file ? 'text-slate-800 font-bold border-primary/30 bg-blue-50/20' : 'text-slate-400 font-medium'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Upload className="w-4 h-4 text-slate-400 shrink-0" />
+                                            <span className="truncate">
+                                                {docEditFormData.file ? docEditFormData.file.name : "Select a file..."}
+                                            </span>
+                                        </div>
+                                        <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 shadow-2xs shrink-0 ml-2">
+                                            Choose File
+                                        </span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1720,7 +1828,7 @@ const DrawingsDocumentsPage = () => {
                         </h3>
                         <div className="font-inter">
                             <label className={labelClasses}>Remarks</label>
-                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docEditFormData.remarks} onChange={e => setDocEditFormData({ ...docEditFormData, remarks: e.target.value })} />
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docEditFormData.remarks} onChange={e => setDocEditFormData({ ...docEditFormData, remarks: e.target.value })} placeholder="Enter technical specifications, remarks or notes..." />
                         </div>
                     </div>
                 </form>
@@ -1729,9 +1837,21 @@ const DrawingsDocumentsPage = () => {
             {/* ── Document Create Modal ────────────────────────────────────────────────────────── */}
             <Modal isOpen={isDocCreateModalOpen} onClose={() => setIsDocCreateModalOpen(false)} title="Upload Document" maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="px-8 py-3 whitespace-nowrap bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
-                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="px-8 py-3 whitespace-nowrap bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-end gap-3 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => setIsDocCreateModalOpen(false)}
+                            disabled={isSubmitting}
+                            className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="doc-create-form"
+                            disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file}
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold shadow-md shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center gap-2"
+                        >
                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Document"}
                         </button>
                     </div>
@@ -1774,19 +1894,61 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
-                                <input type="text" className={inputClasses()} value={docCreateFormData.title} onChange={e => setDocCreateFormData({ ...docCreateFormData, title: e.target.value })} required />
+                                <input type="text" className={inputClasses()} value={docCreateFormData.title} onChange={e => setDocCreateFormData({ ...docCreateFormData, title: e.target.value })} required placeholder="e.g., Site Contract" />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Document Type</label>
-                                <input type="text" className={inputClasses()} value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
+                            <div className="font-inter z-[65] relative">
+                                <CustomSelect
+                                    label="Document Type"
+                                    value={docCreateFormData.document_type || ""}
+                                    onChange={(val) => setDocCreateFormData({ ...docCreateFormData, document_type: val })}
+                                    options={[
+                                        { id: "", label: "Select Type (Optional)" },
+                                        { id: "General", label: "General" },
+                                        { id: "Drawing", label: "Drawing" },
+                                        { id: "Contract", label: "Contract" },
+                                        { id: "Invoice", label: "Invoice" },
+                                        { id: "Report", label: "Report" },
+                                        { id: "Blueprint", label: "Blueprint" },
+                                        { id: "Other", label: "Other" }
+                                    ]}
+                                    placeholder="Select Type (Optional)"
+                                />
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Parent ID</label>
-                                <input type="number" className={inputClasses()} value={docCreateFormData.parent_id} onChange={e => setDocCreateFormData({ ...docCreateFormData, parent_id: e.target.value ? Number(e.target.value) : "" })} />
-                            </div>
+
                             <div className="font-inter">
                                 <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
-                                <input type="file" className={inputClasses()} onChange={e => setDocCreateFormData({ ...docCreateFormData, file: e.target.files?.[0] || null })} required />
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="upload-doc-file-input"
+                                        className="sr-only"
+                                        onChange={e => {
+                                            const f = e.target.files?.[0] || null;
+                                            setDocCreateFormData((prev: any) => ({
+                                                ...prev,
+                                                file: f,
+                                                title: (prev.title && prev.title.trim()) ? prev.title : (f ? f.name.replace(/\.[^/.]+$/, '') : '')
+                                            }));
+                                        }}
+                                        required={!docCreateFormData.file}
+                                    />
+                                    <label
+                                        htmlFor="upload-doc-file-input"
+                                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm flex items-center justify-between cursor-pointer hover:bg-slate-100/60 transition-all font-inter ${
+                                            docCreateFormData.file ? 'text-slate-800 font-bold border-primary/30 bg-blue-50/20' : 'text-slate-400 font-medium'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Upload className="w-4 h-4 text-slate-400 shrink-0" />
+                                            <span className="truncate">
+                                                {docCreateFormData.file ? docCreateFormData.file.name : "Select a file..."}
+                                            </span>
+                                        </div>
+                                        <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 shadow-2xs shrink-0 ml-2">
+                                            Choose File
+                                        </span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1797,7 +1959,7 @@ const DrawingsDocumentsPage = () => {
                         </h3>
                         <div className="font-inter">
                             <label className={labelClasses}>Remarks</label>
-                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docCreateFormData.remarks} onChange={e => setDocCreateFormData({ ...docCreateFormData, remarks: e.target.value })} />
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docCreateFormData.remarks} onChange={e => setDocCreateFormData({ ...docCreateFormData, remarks: e.target.value })} placeholder="Enter technical specifications, remarks or notes..." />
                         </div>
                     </div>
                 </form>
@@ -1809,12 +1971,19 @@ const DrawingsDocumentsPage = () => {
                 title="Create Folder"
                 maxWidth="max-w-4xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button type="button" onClick={() => setIsDrawingFolderModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                    <div className="flex items-center justify-end gap-3 font-inter">
+                        <button type="button" onClick={() => setIsDrawingFolderModalOpen(false)} className="h-10 px-6 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all font-inter whitespace-nowrap flex items-center justify-center">
                             Cancel
                         </button>
-                        <button type="submit" form="drawing-folder-form" disabled={isSubmitting} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter">
-                            {isSubmitting ? "Syncing..." : "Create Folder"}
+                        <button type="submit" form="drawing-folder-form" disabled={isSubmitting} className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-bold shadow-md shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap flex items-center justify-center gap-2">
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Syncing...</span>
+                                </>
+                            ) : (
+                                "Create Folder"
+                            )}
                         </button>
                     </div>
                 }
@@ -1841,7 +2010,7 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>
-                                <input type="text" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
+                                <input type="text" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required placeholder="Enter descriptive folder name..." />
                             </div>
                         </div>
                     </div>

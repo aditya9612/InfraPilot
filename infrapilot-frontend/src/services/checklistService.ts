@@ -5,6 +5,8 @@ export interface ChecklistItem {
     project_id: number;
     name: string;
     type: string;
+    description?: string;
+    is_active?: boolean;
 }
 
 export interface ChecklistItemEntry {

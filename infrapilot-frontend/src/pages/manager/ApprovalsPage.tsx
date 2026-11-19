@@ -337,7 +337,7 @@ const ApprovalsPage = () => {
             <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Oversight & Approvals</h1>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Oversight & Approvals</h1>
                         <p className="text-slate-500 text-sm">Review critical site requests and authorize resource deployment.</p>
                     </div>
                     <div className="flex gap-2">
@@ -425,7 +425,7 @@ const ApprovalsPage = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                                     <th className="px-6 py-4">Entity Type</th>
                                     <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Summary Detail</th>
@@ -600,19 +600,20 @@ const ApprovalsPage = () => {
                     </>
                 }
             >
-                <div className="p-4 space-y-4">
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
+                <div className="p-6 space-y-5 min-h-[360px] font-inter">
+                    <div className="relative z-[60]">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
                         <CustomSelect
                             value={createForm.entity_type}
                             onChange={(val) => setCreateForm(p => ({ ...p, entity_type: val, entity_id: "" }))}
                             options={ENTITY_TYPES.map(et => ({ id: et.value, label: et.label }))}
                             placeholder="Select Entity Type"
+                            placement="bottom"
                             maxHeight="max-h-48"
                         />
                     </div>
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                    <div className="relative z-[50]">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">
                             {ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label || "Entity"} <span className="text-rose-500">*</span>
                         </label>
                         {isLoadingEntities ? (
@@ -639,19 +640,20 @@ const ApprovalsPage = () => {
                                     ]}
                                     placeholder={entityPlaceholder}
                                     searchable={entityItems.length > 5}
+                                    placement="bottom"
                                     maxHeight="max-h-48"
                                 />
                             );
                         })()}
                     </div>
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Remarks</label>
+                    <div className="relative z-[10]">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">Remarks</label>
                         <textarea
                             value={createForm.remarks}
                             onChange={e => setCreateForm(p => ({ ...p, remarks: e.target.value }))}
                             placeholder="Reason for approval request..."
                             rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
                         />
                     </div>
                 </div>

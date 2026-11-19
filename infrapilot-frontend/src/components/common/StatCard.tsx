@@ -27,7 +27,7 @@ const StatCard = ({ title, value, sub, accent = "text-primary", icon, trend }: P
       </div>
     )}
     <div>
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{title}</p>
+      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{title}</p>
       <p className={`text-xl sm:text-2xl font-bold truncate ${accent}`}>{value}</p>
       {sub && <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{sub}</p>}
     </div>

@@ -6,12 +6,73 @@ import { Eye, Bell, CheckCheck, ChevronLeft, ChevronRight, Trash2 } from "lucide
 import Modal from "../../components/common/Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
 
+
+const formatTableDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null") return "—";
+  try {
+    let s = String(dateStr).trim();
+    if (!s.includes('T') && s.includes(' ')) s = s.replace(' ', 'T');
+    if (!s.includes('Z') && !s.includes('+') && !/[-+]\d{2}:\d{2}$/.test(s)) s += 'Z';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+  } catch {
+    return String(dateStr);
+  }
+};
+
+const formatTableTime = (dateStr: string | null | undefined): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null") return "";
+  try {
+    let s = String(dateStr).trim();
+    if (!s.includes('T') && s.includes(' ')) s = s.replace(' ', 'T');
+    if (!s.includes('Z') && !s.includes('+') && !/[-+]\d{2}:\d{2}$/.test(s)) s += 'Z';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+  } catch {
+    return "";
+  }
+};
+
+const formatFullDateTime = (dateStr: string | null | undefined): string => {
+  if (!dateStr || dateStr === "-" || dateStr === "null") return "—";
+  try {
+    let s = String(dateStr).trim();
+    if (!s.includes('T') && s.includes(' ')) s = s.replace(' ', 'T');
+    if (!s.includes('Z') && !s.includes('+') && !/[-+]\d{2}:\d{2}$/.test(s)) s += 'Z';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+  } catch {
+    return String(dateStr);
+  }
+};
+
 const ManagerNotificationsPage = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingNotif, setViewingNotif] = useState<Notification | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
+  
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,15 +92,18 @@ const ManagerNotificationsPage = () => {
   };
 
   const filteredNotifs = notifications.filter(n => {
+    const isRead = !!(n.read || (n as any).is_read);
+    const statusText = isRead ? "read" : "unread";
     const matchesSearch =
       (n.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (n.type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (n.description || "").toLowerCase().includes(searchTerm.toLowerCase());
+      (n.description || (n as any).message || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      statusText.includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    if (activeStatFilter === "Unread" && n.read) return false;
-    if (activeStatFilter === "Read" && !n.read) return false;
+    if (activeStatFilter === "Unread" && isRead) return false;
+    if (activeStatFilter === "Read" && !isRead) return false;
     if (activeStatFilter === "Approval" && n.type !== "Approval") return false;
 
     return true;
@@ -51,34 +115,9 @@ const ManagerNotificationsPage = () => {
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead("ProjectManager", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setSelectedIds([]);
   };
 
-  const handleMarkSelectedRead = async () => {
-    if (selectedIds.length === 0) return;
-    await Promise.all(selectedIds.map(id => notificationService.markAsRead(id)));
-    setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, read: true } : n));
-    setSelectedIds([]);
-  };
-
-  const handleToggleSelectAll = () => {
-    const allIds = filteredNotifs.map(n => n.id);
-    const allSelected = allIds.every(id => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds(prev => prev.filter(id => !allIds.includes(id)));
-    } else {
-      setSelectedIds(prev => {
-        const union = new Set([...prev, ...allIds]);
-        return Array.from(union);
-      });
-    }
-  };
-
-  const handleToggleSelect = (id: number | string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-  };
+  
 
   const handleViewDetails = async (notif: Notification) => {
     setViewingNotif(notif);
@@ -96,19 +135,15 @@ const ManagerNotificationsPage = () => {
       <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification Center</h1>
-            <p className="text-slate-500 text-sm">View all your project alerts, approvals, and system messages.</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+              <span className="p-2 bg-primary/10 text-primary rounded-xl">
+                <Bell className="w-5 h-5" />
+              </span>
+              Notification Center
+            </h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">View all your project alerts, approvals, and system messages.</p>
           </div>
-          <div className="flex gap-2">
-            {selectedIds.length > 0 && (
-              <button
-                onClick={handleMarkSelectedRead}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-              >
-                <CheckCheck className="w-4 h-4" />
-                Mark Selected Read ({selectedIds.length})
-              </button>
-            )}
+          <div>
             <button
               onClick={handleMarkAllRead}
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
@@ -171,52 +206,23 @@ const ManagerNotificationsPage = () => {
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
               />
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <span>Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <span>entries</span>
-            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={filteredNotifs.length > 0 && filteredNotifs.every(n => selectedIds.includes(n.id))}
-                      onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                    />
-                  </th>
+                <tr className="bg-slate-100/70 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-6 py-4 w-44">Type</th>
                   <th className="px-6 py-4 min-w-[200px]">Title</th>
                   <th className="px-6 py-4 min-w-[280px]">Message</th>
                   <th className="px-6 py-4 whitespace-nowrap">Date & Time</th>
+                  <th className="px-6 py-4 w-28 text-center">Status</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paginatedNotifs.map((notif) => (
                   <tr key={notif.id} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
-                    <td className="px-6 py-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(notif.id)}
-                        onChange={() => handleToggleSelect(notif.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                      />
-                    </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                         notif.type === "Approval"
@@ -240,25 +246,40 @@ const ManagerNotificationsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <p className={`text-sm ${!notif.read ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
+                      <p className={`text-sm ${!notif.read ? "font-bold text-slate-900" : "font-semibold text-slate-700"}`}>
                         {notif.title}
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-xs text-slate-400 line-clamp-2">
+                      <p className="text-xs text-slate-500 line-clamp-2">
                         {notif.description || (notif as any).message || "—"}
                       </p>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-medium">
-                      {notif.time}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-xs font-bold text-slate-600">
+                        {formatTableDate(notif.created_at || notif.timestamp || (notif as any).time)}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                        {formatTableTime(notif.created_at || notif.timestamp || (notif as any).time)}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest border ${
+                        notif.read || (notif as any).is_read
+                          ? "bg-slate-100 text-slate-500 border-slate-200"
+                          : "bg-blue-50 text-blue-600 border-blue-100"
+                      }`}>
+                        {notif.read || (notif as any).is_read ? "Read" : "Unread"}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleViewDetails(notif)}
-                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-blue-600 rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                         title="View Details"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
                       </button>
                     </td>
                   </tr>
@@ -277,32 +298,68 @@ const ManagerNotificationsPage = () => {
 
           {/* Pagination Controls */}
           {filteredNotifs.length > 0 && (
-            <div className="p-4 border-t border-slate-50 flex items-center justify-between">
-              <span className="text-xs text-slate-500">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredNotifs.length)} of {filteredNotifs.length} entries
-              </span>
-              <div className="flex items-center gap-1">
+            <div className="p-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 font-inter">
+              {/* Left: Rows per page */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rows per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 appearance-none pr-8 cursor-pointer relative"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.25rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.25em 1.25em'
+                  }}
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              {/* Middle: Info */}
+              <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredNotifs.length)} of {filteredNotifs.length} records
+              </div>
+
+              {/* Right: Pagination */}
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   title="Previous Page"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                {Array.from({ length: totalPages }).map((_, idx) => {
-                  const pageNum = idx + 1;
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
+                {(() => {
+                  const pages = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    if (currentPage <= 3) {
+                      pages.push(1, 2, 3, 4, '...', totalPages);
+                    } else if (currentPage >= totalPages - 2) {
+                      pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                    } else {
+                      pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                    }
+                  }
+                  return pages.map((page, index) => {
+                    if (page === '...') {
+                      return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                    }
+                    const pageNum = page;
+                    const isActive = currentPage === pageNum;
                     return (
                       <button
-                        key={pageNum}
+                        key={`page-${pageNum}`}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                          currentPage === pageNum
+                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                          isActive
                             ? "bg-primary text-white shadow-sm"
                             : "text-slate-600 hover:bg-slate-100"
                         }`}
@@ -310,20 +367,12 @@ const ManagerNotificationsPage = () => {
                         {pageNum}
                       </button>
                     );
-                  }
-                  if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                    return (
-                      <span key={pageNum} className="px-1 text-slate-400 text-xs">
-                        ...
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
+                  });
+                })()}
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   title="Next Page"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -342,39 +391,44 @@ const ManagerNotificationsPage = () => {
         maxWidth="max-w-md"
       >
         {viewingNotif && (
-          <div className="p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                viewingNotif.type === "Approval"
-                  ? "bg-blue-50 text-blue-600 border border-blue-100"
-                  : viewingNotif.type === "System"
-                    ? "bg-purple-50 text-purple-600 border border-purple-100"
-                    : viewingNotif.type === "Alert"
-                      ? "bg-rose-50 text-rose-600 border border-rose-100"
-                      : "bg-slate-100 text-slate-600 border border-slate-200"
+          <div className="p-6 font-inter">
+            <div className="flex items-center gap-3 mb-6">
+              <div className={`p-3 rounded-xl ${
+                viewingNotif.type === 'Alert' 
+                  ? 'bg-rose-100 text-rose-600' 
+                  : viewingNotif.type === 'Approval' 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'bg-blue-100 text-blue-600'
               }`}>
-                {viewingNotif.type}
-              </span>
-              <span className="text-xs text-slate-400 font-medium">
-                {viewingNotif.time}
-              </span>
+                <Bell className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 leading-tight">{viewingNotif.title}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-widest border ${
+                    viewingNotif.read || (viewingNotif as any).is_read
+                      ? "bg-slate-100 text-slate-500 border-slate-200"
+                      : "bg-blue-50 text-blue-600 border-blue-100"
+                  }`}>
+                    {viewingNotif.read || (viewingNotif as any).is_read ? "Read" : "Unread"}
+                  </span>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {formatFullDateTime(viewingNotif.created_at || viewingNotif.timestamp || (viewingNotif as any).time)}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-800">
-                {viewingNotif.title}
-              </h3>
-              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed">
-                {viewingNotif.description}
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-6">
+              <p className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                {viewingNotif.details || viewingNotif.description || (viewingNotif as any).message || "—"}
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setIsViewModalOpen(false)}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
-              >
-                Close
-              </button>
-            </div>
+            <button 
+              onClick={() => setIsViewModalOpen(false)} 
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs"
+            >
+              Close
+            </button>
           </div>
         )}
       </Modal>

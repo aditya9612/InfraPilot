@@ -252,9 +252,11 @@ const MaterialRequestPage = () => {
 
     const baseFilteredRequests = useMemo(() => {
         if (!searchTerm.trim()) return requestData;
+        const term = searchTerm.toLowerCase().trim();
         return requestData.filter(r =>
-            (r.request_type && r.request_type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (r.id && String(r.id).toLowerCase().includes(searchTerm.toLowerCase()))
+            (r.request_type && r.request_type.toLowerCase().includes(term)) ||
+            (r.description && r.description.toLowerCase().includes(term)) ||
+            (r.id && String(r.id).toLowerCase().includes(term))
         );
     }, [requestData, searchTerm]);
 
@@ -427,7 +429,7 @@ const MaterialRequestPage = () => {
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by material type or requisition ID..."
+                                placeholder="Search by material type..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"

@@ -82,6 +82,13 @@ const normalizeDrawingToDocument = (drawing: any, projectName?: string): Documen
 // ─── Page ────────────────────────────────────────────────────────────
 const ManagerDocumentsPage = () => {
     const { selectedProjectId, selectedProject, assignedProjects, setSelectedProjectId } = useProject();
+
+    const getProjectName = useCallback((pId?: string | number, fallbackName?: string) => {
+        if (fallbackName && fallbackName !== "General" && fallbackName !== "") return fallbackName;
+        if (!pId) return fallbackName || "—";
+        const found = assignedProjects.find((p: any) => String(p.id || p.project_id) === String(pId));
+        return found ? (found.project_name || found.name) : (fallbackName || `Project #${pId}`);
+    }, [assignedProjects]);
     const { tab } = useParams();
 
 
@@ -745,19 +752,20 @@ const ManagerDocumentsPage = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left min-w-[800px]">
                                     <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                                        <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                                             <th className="px-6 py-4 w-14">Type</th>
                                             <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Name" : "Document Name"}</th>
-                                            <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Type" : "Category"}</th>
+                                            <th className="px-6 py-4">Project Name</th>
+                                            {mainTab !== "Drawings" && <th className="px-6 py-4">Category</th>}
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Version</th>
-                                            <th className="px-6 py-4">Uploaded</th>
+                                            <th className="px-6 py-4">Date</th>
                                             <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? (
-                                            <tr><td colSpan={7} className="px-6 py-20 text-center">
+                                            <tr><td colSpan={mainTab === "Drawings" ? 7 : 8} className="px-6 py-20 text-center">
                                                 <div className="flex flex-col items-center gap-3">
                                                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing document vault...</p>
@@ -781,14 +789,20 @@ const ManagerDocumentsPage = () => {
                                                             <td className="px-6 py-4">
                                                                 <div className="max-w-[260px]">
                                                                     <p className="text-sm font-bold text-slate-800 truncate" title={doc.title}>{doc.title}</p>
-                                                                    
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-widest">
-                                                                    {doc.document_type || "File"}
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className="text-xs font-bold text-slate-700">
+                                                                    {doc.project_name || getProjectName(doc.project_id) || "—"}
                                                                 </span>
                                                             </td>
+                                                            {mainTab !== "Drawings" && (
+                                                                <td className="px-6 py-4">
+                                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-widest">
+                                                                        {doc.document_type || "File"}
+                                                                    </span>
+                                                                </td>
+                                                            )}
                                                             <td className="px-6 py-4">
                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : doc.status === "UNDER_REVIEW" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
                                                                     {doc.status ? doc.status.replace("_", " ") : "PENDING"}
@@ -797,8 +811,17 @@ const ManagerDocumentsPage = () => {
                                                             <td className="px-6 py-4 text-xs font-bold text-slate-500">
                                                                 {doc.version || "v1.0"}
                                                             </td>
-                                                            <td className="px-6 py-4 text-[10px] font-bold text-slate-400">
-                                                                {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                            <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                                                                {(() => {
+                                                                    const rawDate = (doc as any).date || doc.uploaded_at || (doc as any).created_at;
+                                                                    if (!rawDate) return "—";
+                                                                    try {
+                                                                        const d = new Date(rawDate);
+                                                                        return isNaN(d.getTime()) ? rawDate : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                                                                    } catch {
+                                                                        return rawDate;
+                                                                    }
+                                                                })()}
                                                             </td>
                                                             <td className="px-6 py-4 text-right">
                                                                 <div className="flex items-center justify-end gap-1">
@@ -846,7 +869,7 @@ const ManagerDocumentsPage = () => {
                                                 })}
                                             </>
                                         ) : (
-                                            <tr><td colSpan={7} className="px-6 py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">
+                                            <tr><td colSpan={mainTab === "Drawings" ? 7 : 8} className="px-6 py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">
                                                 No documents found in this location.
                                             </td></tr>
                                         )}

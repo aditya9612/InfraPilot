@@ -151,7 +151,9 @@ export const settingsService = {
             if (data.mobile_number) formData.append("mobile_number", data.mobile_number);
             if (data.email) formData.append("email", data.email);
             if (data.role) formData.append("role", data.role);
-            if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
+            if (data.is_active !== undefined) {
+                formData.append("is_active", String(data.is_active));
+            }
 
             console.log("PUT /api/v1/settings/profile - Final FormData contents:");
             formData.forEach((value, key) => {

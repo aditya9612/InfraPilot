@@ -318,6 +318,11 @@ const ManagerIssuesPage = () => {
             return;
         }
 
+        if (formData.status === "Closed" && !formData.resolution?.trim()) {
+            toast.error("Resolution is required to close the issue.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await issueService.updateIssue(selectedIssue.id, {
@@ -335,7 +340,9 @@ const ManagerIssuesPage = () => {
             setSelectedIssue(null);
             fetchIssues();
         } catch (error: any) {
-            console.error(error); toast.error(error.response?.data?.message || "Failed to update issue");
+            console.error(error);
+            const errorMsg = error.response?.data?.detail || error.response?.data?.message || "Failed to update issue";
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -443,8 +450,8 @@ const ManagerIssuesPage = () => {
             <PageTransition key="manager-issues" className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Issues</h1>
-                        <p className="text-slate-500 text-sm">Track, manage, and resolve critical project bottlenecks.</p>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Project Issues</h1>
+                        <p className="text-slate-500 text-sm font-medium">Track, manage, and resolve critical project bottlenecks.</p>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={fetchIssues} className="p-2 bg-white text-slate-400 hover:text-primary rounded-xl border border-slate-200 shadow-sm transition-colors">
@@ -541,14 +548,14 @@ const ManagerIssuesPage = () => {
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
-                                    <th className="px-6 py-4">Title & Category</th>
-                                    <th className="px-6 py-4">Description</th>
-                                    <th className="px-6 py-4">Priority</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Date</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                            <thead className="bg-slate-100 border-b border-slate-200">
+                                <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <th className="px-6 py-4 font-bold text-slate-700">Title & Category</th>
+                                    <th className="px-6 py-4 font-bold text-slate-700">Description</th>
+                                    <th className="px-6 py-4 font-bold text-slate-700">Priority</th>
+                                    <th className="px-6 py-4 font-bold text-slate-700">Status</th>
+                                    <th className="px-6 py-4 font-bold text-slate-700">Date</th>
+                                    <th className="px-6 py-4 text-right font-bold text-slate-700">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -582,8 +589,16 @@ const ManagerIssuesPage = () => {
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-semibold text-slate-500">
-                                                {new Date(item.reported_date).toLocaleDateString()}
+                                            <td className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
+                                                {(() => {
+                                                    if (!item.reported_date) return "—";
+                                                    try {
+                                                        const d = new Date(item.reported_date);
+                                                        return isNaN(d.getTime()) ? item.reported_date : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                                                    } catch {
+                                                        return item.reported_date;
+                                                    }
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1 items-center transition-opacity">
@@ -828,7 +843,7 @@ const ManagerIssuesPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Resolution <span className="text-rose-500">*</span></label>
                         <textarea name="resolution" value={formData.resolution || ""} onChange={handleInputChange} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" placeholder="Details of how the issue was resolved (if closed)..." />
                     </div>
                 </div>
@@ -940,7 +955,7 @@ const ManagerIssuesPage = () => {
                         onClick={() => { setIsViewModalOpen(false); setSelectedIssue(null); }}
                         className="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] shadow-md shadow-blue-500/20"
                     >
-                        Dismiss
+                        Close
                     </button>
                 </div>
             </Modal>

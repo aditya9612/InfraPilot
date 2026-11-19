@@ -134,7 +134,7 @@ const EngineersPage = () => {
             email: u.email,
             mobile: u.mobile_number,
             projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
-            status: u.is_active ? "Active" : "On Leave",
+            status: u.is_active ? "Active" : "Inactive",
             specialization: u.designation || "Site Engineer",
             designation: u.designation || "Site Engineer",
             pan_number: u.pan_number || "",
@@ -297,7 +297,7 @@ const EngineersPage = () => {
           email: u.email,
           mobile: u.mobile_number,
           projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
-          status: u.is_active ? "Active" : "On Leave",
+          status: u.is_active ? "Active" : "Inactive",
           specialization: u.designation || "Site Engineer",
           designation: u.designation || "Site Engineer",
           pan_number: u.pan_number || "",
@@ -516,10 +516,10 @@ const EngineersPage = () => {
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase whitespace-nowrap ${e.status === "Active"
                               ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
+                              : "bg-rose-50 text-rose-600 border border-rose-200"
                               }`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.status === "Active" ? "bg-emerald-500" : "bg-rose-500"}`} />
                             {e.status}
                           </span>
                         </td>

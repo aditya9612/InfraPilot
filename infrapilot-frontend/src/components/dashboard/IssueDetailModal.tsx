@@ -86,7 +86,7 @@ const IssueDetailModal: React.FC<IssueDetailModalProps> = ({
                         onClick={onClose}
                         className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all"
                     >
-                        Dismiss Insight
+                        Close
                     </button>
                     <button
                         onClick={() => {
