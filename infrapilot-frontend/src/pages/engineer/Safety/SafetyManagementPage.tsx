@@ -118,7 +118,7 @@ const SafetyManagementPage = () => {
         project_id: 0,
         task_id: 0,
         date: new Date().toISOString().split("T")[0],
-        violation_type: "No Helmet",
+        violation_type: "",
         description: "",
         injury_details: "",
         action_taken: "",
@@ -432,10 +432,10 @@ const SafetyManagementPage = () => {
                 project_id: Number(formData.project_id) || projectId || 0,
                 task_id: formData.task_id ? Number(formData.task_id) : null,
                 description: formData.description?.trim() || "No description provided",
-                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                responsible_person: (formData.responsible_person?.trim() || "Unassigned").slice(0, 50),
                 injury_details: formData.injury_details?.trim() || "None",
                 action_taken: formData.action_taken?.trim() || "None",
-                violation_type: formData.violation_type || "No Helmet",
+                violation_type: formData.violation_type?.trim() || "None",
                 safety_checklist_status: formData.safety_checklist_status || "pending",
                 ppe_compliance: !!formData.ppe_compliance
             };
@@ -453,7 +453,7 @@ const SafetyManagementPage = () => {
             setFormData({
                 project_id: projectId || 0,
                 date: new Date().toISOString().split("T")[0],
-                violation_type: "No Helmet",
+                violation_type: "",
                 description: "",
                 injury_details: "",
                 action_taken: "",
@@ -538,10 +538,10 @@ const SafetyManagementPage = () => {
                 project_id: Number(formData.project_id),
                 task_id: formData.task_id ? Number(formData.task_id) : null,
                 description: formData.description?.trim() || "No description provided",
-                responsible_person: formData.responsible_person?.trim() || "Unassigned",
+                responsible_person: (formData.responsible_person?.trim() || "Unassigned").slice(0, 50),
                 injury_details: formData.injury_details?.trim() || "None",
                 action_taken: formData.action_taken?.trim() || "None",
-                violation_type: formData.violation_type || "No Helmet",
+                violation_type: formData.violation_type?.trim() || "None",
                 safety_checklist_status: formData.safety_checklist_status || "pending",
                 ppe_compliance: !!formData.ppe_compliance
             };
@@ -795,11 +795,15 @@ const SafetyManagementPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col max-w-xs font-inter">
-                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter">{item.description}</span>
-                                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
-                                                                <HeartPulse className="w-3 h-3 text-rose-500" />
-                                                                <span className="truncate font-inter">{item.injury_details || "No injuries"}</span>
-                                                            </div>
+                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter" title={item.description}>{item.description}</span>
+                                                            {item.injury_details &&
+                                                                item.injury_details.trim().toLowerCase() !== item.description?.trim().toLowerCase() &&
+                                                                !['none', 'no injuries', 'no injury reported', 'no injury'].includes(item.injury_details.trim().toLowerCase()) && (
+                                                                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter mt-0.5">
+                                                                    <HeartPulse className="w-3 h-3 text-rose-500 shrink-0" />
+                                                                    <span className="truncate font-inter" title={item.injury_details}>{item.injury_details}</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
@@ -808,11 +812,11 @@ const SafetyManagementPage = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
-                                                            item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
-                                                                item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
-                                                                    'bg-slate-100 text-slate-600'
-                                                            }`}>
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                                                            (item.safety_checklist_status || "pending").toLowerCase() === 'completed' || (item.safety_checklist_status || "pending").toLowerCase() === 'resolved' || (item.safety_checklist_status || "pending").toLowerCase() === 'approved' || (item.safety_checklist_status || "pending").toLowerCase() === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
+                                                            (item.safety_checklist_status || "pending").toLowerCase() === 'failed' || (item.safety_checklist_status || "pending").toLowerCase() === 'rejected' || (item.safety_checklist_status || "pending").toLowerCase() === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200' :
+                                                            'bg-amber-50 text-amber-600 border border-amber-200'
+                                                        }`}>
                                                             {item.safety_checklist_status || "pending"}
                                                         </span>
                                                     </td>
@@ -1117,6 +1121,7 @@ const SafetyManagementPage = () => {
                                     name="responsible_person"
                                     value={formData.responsible_person}
                                     onChange={handlePersonNameChange}
+                                    maxLength={50}
                                     placeholder="Enter responsible officer name"
                                     className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:ring-rose-200" : ""}`}
                                 />
@@ -1315,7 +1320,7 @@ const SafetyManagementPage = () => {
                                     )}
                                     {selectedIncident.action_taken && (
                                         <div className="font-inter">
-                                            <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 font-inter">Active Taken</p>
+                                            <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 font-inter">Action Taken</p>
                                             <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
                                                 "{selectedIncident.action_taken}"
                                             </div>
@@ -1327,13 +1332,24 @@ const SafetyManagementPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+                            className="w-full py-4 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
                         >
-                            Dismiss Audit Insight
+                            Close
                         </button>
                     </div>
                 )}
             </Modal>
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setRecordToDelete(null); }}
+                onConfirm={handleDeleteRecord}
+                title="Delete Safety Record"
+                message="Are you sure you want to delete this safety audit record? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                type="danger"
+            />
         </>
     );
 };

@@ -27,11 +27,12 @@ import { projectService } from "../../../services/projectService";
 import type { IssueItem } from "../../../types/issue";
 import IssueFilterModal from "../../../components/dashboard/IssueFilterModal";
 import type { IssueFilterSelection } from "../../../components/dashboard/IssueFilterModal";
+import { generateIssueReportPDF } from "../../../utils/issuePDFGenerator";
 import { useProject } from "../../../context/ProjectContext";
 
 
 const PRIORITY_COLORS: Record<string, string> = {
-    Critical: "bg-rose-600 text-white border-rose-600 shadow-sm shadow-rose-600/10 font-bold",
+    Critical: "bg-rose-500 text-white border-rose-400 shadow-sm shadow-rose-500/10 font-bold",
     High: "bg-rose-50 text-rose-600 border-rose-100",
     Medium: "bg-amber-50 text-amber-600 border-amber-100",
     Low: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -143,15 +144,16 @@ const IssueTrackerPage = () => {
         const t = toast.loading(`Generating ${issueFilterFormat}...`);
         try {
             if (issueFilterFormat === 'PDF') {
-                const blob = await reportService.exportIssuesPdf(projectId!, filters);
-                const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', 'issue_report.pdf');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                const projName = projects.find(p => Number(p.id) === Number(projectId))?.name ||
+                    projects.find(p => Number(p.id) === Number(projectId))?.project_name ||
+                    `Project #${projectId}`;
+                const doc = generateIssueReportPDF({
+                    issues: issueData,
+                    projectName: projName,
+                    filters,
+                    members: projectMembers
+                });
+                doc.save('executive_site_issue_report.pdf');
             } else {
                 const blob = await reportService.exportIssuesExcel(projectId!, filters);
                 const url = URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -377,7 +379,7 @@ const IssueTrackerPage = () => {
         closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
     };
 
-    const labelClasses = "block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -705,7 +707,7 @@ const IssueTrackerPage = () => {
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIssue.title}</h3>
+                                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-inter break-words leading-snug" title={selectedIssue.title}>{selectedIssue.title}</h3>
                                         <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIssue.status === 'Closed' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
                                             {selectedIssue.status}
                                         </span>
@@ -728,7 +730,7 @@ const IssueTrackerPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-6 font-inter">
                                     <div>
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project</p>
-                                        <p className="text-sm font-bold text-slate-800 uppercase tracking-widest truncate">
+                                        <p className="text-sm font-bold text-slate-800 uppercase tracking-widest break-words" title={projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.name || `Project #${selectedIssue.project_id}`}>
                                             {projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.project_name ||
                                                 projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.name ||
                                                 `Project #${selectedIssue.project_id}`}
@@ -762,8 +764,8 @@ const IssueTrackerPage = () => {
                                 </div>
                             </div>
                         </div>
-                        <button onClick={() => setSelectedIssue(null)} className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter mb-2">
-                            Dismiss
+                        <button onClick={() => setSelectedIssue(null)} className="w-full py-4 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-2xl active:scale-95 font-inter mb-2">
+                            Close
                         </button>
                     </div>
                 )}
@@ -806,7 +808,6 @@ const IssueTrackerPage = () => {
                     )}
                     {/* Project */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Project</h3>
                         <div className="z-[66] relative">
                             <CustomSelect
                                 label="Project"
@@ -908,15 +909,13 @@ const IssueTrackerPage = () => {
                     {/* Description & Resolution */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-800 mb-2 border-b border-slate-50 pb-2">Description</h3>
                             <label className={labelClasses}>Description</label>
-                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={`${inputClasses(errors.description)} resize-none`} />
+                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} placeholder="Enter detailed issue description..." className={`${inputClasses(errors.description)} resize-none`} />
                             {errors.description && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.description}</p>}
                         </div>
 
                         {formMode === 'edit' && (
                             <div>
-                                <h3 className="text-sm font-bold text-slate-800 mb-2 border-b border-slate-50 pb-2">Resolution</h3>
                                 <label className={labelClasses}>Resolution Details</label>
                                 <textarea name="resolution" rows={3} value={formData.resolution || ""} onChange={handleInputChange} placeholder="Describe the resolution or actions taken..." className={`${inputClasses(errors.resolution)} resize-none`} />
                             </div>

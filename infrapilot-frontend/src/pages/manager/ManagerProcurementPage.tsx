@@ -446,7 +446,7 @@ const ManagerProcurementPage = () => {
 
                     {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full min-w-[760px] text-left">
+                        <table className="w-full min-w-[900px] text-left">
                             <thead>
                                 {activeTab === "material" ? (
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
@@ -454,7 +454,8 @@ const ManagerProcurementPage = () => {
                                         <th className="px-6 py-4">Request Type</th>
                                         <th className="px-6 py-4">Description</th>
                                         <th className="px-6 py-4">Quantity</th>
-                                        <th className="px-6 py-4">Req. & Approval</th>
+                                        <th className="px-6 py-4">Requested By</th>
+                                        <th className="px-6 py-4">Approved By</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
@@ -473,7 +474,7 @@ const ManagerProcurementPage = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-20 text-center">
+                                        <td colSpan={activeTab === "material" ? 8 : 7} className="px-6 py-20 text-center">
                                             <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing ledger...</p>
                                         </td>
@@ -485,11 +486,11 @@ const ManagerProcurementPage = () => {
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.request_type}</td>
                                             <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]" title={item.description}>{item.description}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.quantity}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-slate-600"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Req:</span> {usersMap[item.requested_by] || item.requested_by}</span>
-                                                    <span className="text-sm text-slate-600 mt-0.5"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">App:</span> {usersMap[item.approved_by] || item.approved_by || "-"}</span>
-                                                </div>
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
+                                                {usersMap[item.requested_by] || (item.requested_by ? `User #${item.requested_by}` : "—")}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
+                                                {usersMap[item.approved_by] || (item.approved_by ? `User #${item.approved_by}` : "—")}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border shadow-sm ${getStatusBadge(item.status)}`}>
@@ -581,7 +582,7 @@ const ManagerProcurementPage = () => {
                                     )
                                 )) : (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                        <td colSpan={activeTab === "material" ? 8 : 7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                             No {activeTab === "material" ? "requisitions" : "purchase orders"} archived for this project.
                                         </td>
                                     </tr>
@@ -622,8 +623,8 @@ const ManagerProcurementPage = () => {
 
                                         <div className="flex items-center justify-between pt-2 border-t border-slate-50 text-xs text-slate-500">
                                             <div className="flex flex-col text-[11px]">
-                                                <span><strong className="text-slate-400 uppercase text-[9px]">Req:</strong> {usersMap[item.requested_by] || item.requested_by}</span>
-                                                <span><strong className="text-slate-400 uppercase text-[9px]">App:</strong> {usersMap[item.approved_by] || item.approved_by || "-"}</span>
+                                                <span><strong className="text-slate-400 uppercase text-[9px]">Requested By:</strong> {usersMap[item.requested_by] || (item.requested_by ? `User #${item.requested_by}` : "—")}</span>
+                                                <span><strong className="text-slate-400 uppercase text-[9px]">Approved By:</strong> {usersMap[item.approved_by] || (item.approved_by ? `User #${item.approved_by}` : "—")}</span>
                                             </div>
                                             {item.status === "Pending" && (
                                                 <div className="flex items-center gap-2">

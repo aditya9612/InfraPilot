@@ -112,10 +112,10 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const dropdownClasses = `absolute z-50 left-0 right-0 ${computedPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-48'} flex flex-col overflow-hidden`;
+    const dropdownClasses = `absolute z-[100] left-0 right-0 ${computedPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-slate-200 rounded-xl shadow-xl ${maxHeight || 'max-h-48'} flex flex-col overflow-hidden`;
 
     return (
-        <div className="relative font-inter" ref={ref}>
+        <div className={`relative font-inter ${open ? "z-[90]" : ""}`} ref={ref}>
             {label && (
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 flex items-center gap-1.5">
                     {Icon && <Icon className={`w-4 h-4 ${error ? 'text-rose-500' : 'text-primary'}`} />}
@@ -248,7 +248,7 @@ export const CustomMultiSelect: React.FC<CustomMultiSelectProps> = ({
     const selectedOptions = options.filter(o => values.includes(o.id));
 
     return (
-        <div className="relative font-inter" ref={ref}>
+        <div className={`relative font-inter ${open ? "z-[90]" : ""}`} ref={ref}>
             {label && (
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1 flex items-center gap-1.5">
                     {Icon && <Icon className="w-4 h-4 text-primary" />}

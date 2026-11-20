@@ -228,7 +228,7 @@ const ManagerSafetyPage = () => {
     const term = searchTerm.toLowerCase();
     let data = incidentList.filter(i =>
       (!term || i.description.toLowerCase().includes(term) ||
-        i.responsible_person.toLowerCase().includes(term) ||
+        (i.responsible_person || (i as any).supervised_person || "").toLowerCase().includes(term) ||
         i.violation_type.toLowerCase().includes(term)) &&
       (!filterViolationType || i.violation_type === filterViolationType) &&
       (!filterChecklistStatus || (i.safety_checklist_status || "pending") === filterChecklistStatus)
@@ -389,7 +389,7 @@ const ManagerSafetyPage = () => {
               <AlertOctagon className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight font-inter">
                 {isActions ? "Incident Report" : "Safety Checklist"}
               </h1>
               <p className="text-slate-500 text-sm">
@@ -397,13 +397,15 @@ const ManagerSafetyPage = () => {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setFormData(defaultForm()); setIsNewModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
-              <Plus className="w-4 h-4" />
-              {isActions ? "Log Audit Entry" : "Log Safety Checklist"}
-            </button>
-          </div>
+          {!isActions && (
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => { setFormData(defaultForm()); setIsNewModalOpen(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+                <Plus className="w-4 h-4" />
+                Log Safety Checklist
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Stat Cards ── */}
@@ -417,7 +419,7 @@ const ManagerSafetyPage = () => {
             <div key={s.title}
               onClick={() => s.status && setActiveStatFilter(s.status as any)}
               className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? "hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20" : "cursor-default"} group ${activeStatFilter === s.status ? "border-primary bg-primary/[0.02]" : ""}`}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary">{s.title}</p>
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 group-hover:text-primary">{s.title}</p>
               <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
               <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
             </div>
@@ -486,17 +488,18 @@ const ManagerSafetyPage = () => {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing vault...</p>
                 </div>
               ) : (
-                <table className="w-full text-left min-w-[1150px]">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px]">Date</th>
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[150px]">Project Name</th>
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[140px]">Task</th>
-                      <th className="px-6 py-4 min-w-[220px]">Incident Summary</th>
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[180px]">Violation Type</th>
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px]">Status</th>
-                      <th className="px-6 py-4 whitespace-nowrap min-w-[160px]">Resources</th>
-                      <th className="px-6 py-4 text-right whitespace-nowrap min-w-[120px]">Actions</th>
+                <table className="w-full text-left min-w-[1250px]">
+                  <thead className="bg-slate-100 border-b border-slate-200">
+                    <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px] font-bold text-slate-700 font-inter">Date</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[150px] font-bold text-slate-700 font-inter">Project Name</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[140px] font-bold text-slate-700 font-inter">Task</th>
+                      <th className="px-6 py-4 min-w-[220px] font-bold text-slate-700 font-inter">Incident Summary</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[180px] font-bold text-slate-700 font-inter">Violation Type</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[130px] font-bold text-slate-700 font-inter">Status</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[160px] font-bold text-slate-700 font-inter">Resources</th>
+                      <th className="px-6 py-4 whitespace-nowrap min-w-[150px] font-bold text-slate-700 font-inter">Action Taken</th>
+                      <th className="px-6 py-4 text-right whitespace-nowrap min-w-[120px] font-bold text-slate-700 font-inter">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -538,8 +541,12 @@ const ManagerSafetyPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">{item.responsible_person || "Unassigned"}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[150px] whitespace-nowrap">Action: {item.action_taken || "None"}</p>
+                          <p className="text-xs font-bold text-slate-800 uppercase tracking-wider whitespace-nowrap">{item.responsible_person || (item as any).supervised_person || "Unassigned"}</p>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                            {item.action_taken || "—"}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
@@ -557,7 +564,7 @@ const ManagerSafetyPage = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                        <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                           No safety records found.
                         </td>
                       </tr>
@@ -609,17 +616,17 @@ const ManagerSafetyPage = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-4 border-b border-slate-50 flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 text-primary" />
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Resolution Velocity Breakdown</h3>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider font-inter">Resolution Velocity Breakdown</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                    <th className="px-6 py-4">Violation Profile</th>
-                    <th className="px-6 py-4 text-center">Incident Count</th>
-                    <th className="px-6 py-4 text-center">Resolved</th>
-                    <th className="px-6 py-4 text-center">Unresolved</th>
-                    <th className="px-6 py-4 text-right">Resolution Velocity</th>
+                <thead className="bg-slate-100 border-b border-slate-200">
+                  <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-6 py-4 font-bold text-slate-700 font-inter">Violation Profile</th>
+                    <th className="px-6 py-4 text-center font-bold text-slate-700 font-inter">Incident Count</th>
+                    <th className="px-6 py-4 text-center font-bold text-slate-700 font-inter">Resolved</th>
+                    <th className="px-6 py-4 text-center font-bold text-slate-700 font-inter">Unresolved</th>
+                    <th className="px-6 py-4 text-right font-bold text-slate-700 font-inter">Resolution Velocity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -706,7 +713,7 @@ const ManagerSafetyPage = () => {
               <label className={labelCls}>Responsible Person <span className="text-rose-500">*</span></label>
               <input name="responsible_person" type="text" required value={formData.responsible_person}
                 onChange={e => setFormData(p => ({ ...p, responsible_person: e.target.value.replace(/[^a-zA-Z\s.'-]/g, "") }))}
-                placeholder="Full Name" className={getFieldCls(Boolean(formData.responsible_person && formData.responsible_person.trim() !== ""))} />
+                maxLength={50} placeholder="Full Name" className={getFieldCls(Boolean(formData.responsible_person && formData.responsible_person.trim() !== ""))} />
             </div>
             <div>
               <label className={labelCls}>Checklist Status <span className="text-rose-500">*</span></label>
@@ -826,7 +833,7 @@ const ManagerSafetyPage = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-6 font-inter">
                   <div className="font-inter">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observation Summary</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Description</p>
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter">
                       "{selectedIncident.description || "No narrative provided."}"
                     </div>
@@ -841,7 +848,7 @@ const ManagerSafetyPage = () => {
                   )}
                   {selectedIncident.action_taken && (
                     <div className="font-inter">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Corrective Measures</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Action Taken</p>
                       <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
                         "{selectedIncident.action_taken}"
                       </div>
@@ -853,9 +860,9 @@ const ManagerSafetyPage = () => {
 
             <button
               onClick={() => setIsViewModalOpen(false)}
-              className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+              className="w-full py-4 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
             >
-              Dismiss Audit Insight
+              Close
             </button>
           </div>
         )}

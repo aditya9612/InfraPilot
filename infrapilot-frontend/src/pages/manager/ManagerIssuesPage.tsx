@@ -590,15 +590,7 @@ const ManagerIssuesPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
-                                                {(() => {
-                                                    if (!item.reported_date) return "—";
-                                                    try {
-                                                        const d = new Date(item.reported_date);
-                                                        return isNaN(d.getTime()) ? item.reported_date : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-                                                    } catch {
-                                                        return item.reported_date;
-                                                    }
-                                                })()}
+                                                {item.reported_date || "—"}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1 items-center transition-opacity">
@@ -893,7 +885,7 @@ const ManagerIssuesPage = () => {
                         <div className="grid grid-cols-3 gap-4 mb-5">
                             <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</div>
-                                <div className="text-sm font-bold text-slate-800 uppercase truncate">
+                                <div className="text-sm font-bold text-slate-800 uppercase break-words" title={(assignedProjects.find(p => p.id === formData.project_id) as any)?.project_name || (assignedProjects.find(p => p.id === formData.project_id) as any)?.name || 'UNKNOWN'}>
                                     {(assignedProjects.find(p => p.id === formData.project_id) as any)?.project_name || (assignedProjects.find(p => p.id === formData.project_id) as any)?.name || 'UNKNOWN'}
                                 </div>
                             </div>

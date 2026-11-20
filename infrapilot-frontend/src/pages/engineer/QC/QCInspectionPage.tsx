@@ -584,14 +584,16 @@ const QCInspectionPage = () => {
                             Historical record of site inspections and material quality audits.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => { resetForm(); setIsNewModalOpen(true); }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                        >
-                            Log QC Entry
-                        </button>
-                    </div>
+                    {activeTab === "Inspection" && (
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => { resetForm(); setIsNewModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                            >
+                                Log QC Entry
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -667,7 +669,7 @@ const QCInspectionPage = () => {
                                 </span>
                                 <input
                                     type="text"
-                                    placeholder="Search by test type or engineer..."
+                                    placeholder="Search by test description or auditor..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
@@ -718,12 +720,13 @@ const QCInspectionPage = () => {
                                     <thead>
                                         <tr className="bg-slate-100 text-slate-800 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 font-inter">
                                             <th className="px-6 py-4">Project</th>
-                                            <th className="px-6 py-4">Audit Details</th>
+                                            <th className="px-6 py-4">Inspection Details</th>
                                             <th className="px-6 py-4">Test Description</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Result</th>
                                             <th className="px-6 py-4">Standard Value</th>
                                             <th className="px-6 py-4">Auditor</th>
+                                            <th className="px-6 py-4 whitespace-nowrap">View Document</th>
                                             <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -828,7 +831,7 @@ const QCInspectionPage = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
+                                                <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
                                                     No quality audits found in the project vault.
                                                 </td>
                                             </tr>
@@ -1131,7 +1134,7 @@ const QCInspectionPage = () => {
                                 {errors.standard_value && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.standard_value}</p>}
                             </div>
 
-                            <div className="z-[59]">
+                            <div className="relative z-[59] focus-within:z-[80]">
                                 <CustomSelect
                                     label="Status"
                                     required
@@ -1144,11 +1147,12 @@ const QCInspectionPage = () => {
                                     error={!!errors.status}
                                     placeholder="-- Select status --"
                                     searchable={false}
+                                    placement="bottom"
                                 />
                                 {errors.status && <p className="mt-1 text-[10px] text-red-600 font-bold ml-1">{errors.status}</p>}
                             </div>
 
-                            <div className="z-[58]">
+                            <div className="relative z-[58] focus-within:z-[80]">
                                 <CustomSelect
                                     label="Engineer Name"
                                     required
@@ -1159,6 +1163,7 @@ const QCInspectionPage = () => {
                                         label: eng.full_name || eng.name
                                     }))}
                                     placeholder="Enter auditor name..."
+                                    placement="bottom"
                                 />
                             </div>
 
@@ -1368,9 +1373,9 @@ const QCInspectionPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+                            className="w-full py-4 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
                         >
-                            Dismiss Audit Insight
+                            Close
                         </button>
                     </div>
                 )}

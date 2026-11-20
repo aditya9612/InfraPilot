@@ -419,14 +419,16 @@ const ManagerQualityPage = () => {
                     </div>
                     <div className="flex flex-col md:flex-row items-end gap-4">
                         <ProjectSelector variant="page" />
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => { resetForm(); setIsNewModalOpen(true); }}
-                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
-                            >
-                                <Plus className="w-4 h-4" /> Log QC Entry
-                            </button>
-                        </div>
+                        {activeTab !== "reports" && (
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => { resetForm(); setIsNewModalOpen(true); }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                                >
+                                    <Plus className="w-4 h-4" /> Log QC Entry
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -463,7 +465,7 @@ const ManagerQualityPage = () => {
                         <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="text" placeholder="Search by test type or engineer..." value={searchTerm}
+                                <input type="text" placeholder="Search by test description or auditor..." value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-bold" />
                             </div>
@@ -500,15 +502,16 @@ const ManagerQualityPage = () => {
                                 </div>
                             ) : (
                                 <table className="w-full text-left min-w-[900px]">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                            <th className="px-6 py-4 w-[15%]">Audit Details</th>
-                                            <th className="px-6 py-4 w-[15%]">Project</th>
-                                            <th className="px-6 py-4 w-[25%]">Test Description</th>
-                                            <th className="px-6 py-4 w-[10%]">Status</th>
-                                            <th className="px-6 py-4 w-[12%]">Values</th>
-                                            <th className="px-6 py-4 w-[15%]">Auditor</th>
-                                            <th className="px-6 py-4 w-[8%] text-right whitespace-nowrap">Actions</th>
+                                    <thead className="bg-slate-100 border-b border-slate-200">
+                                        <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Inspection Type</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Project</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Test Description</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Status</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Result</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Standard Value</th>
+                                            <th className="px-6 py-4 font-bold text-slate-700 font-inter">Auditor</th>
+                                            <th className="px-6 py-4 text-right font-bold text-slate-700 font-inter whitespace-nowrap">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
@@ -536,9 +539,15 @@ const ManagerQualityPage = () => {
                                                         {qc.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <p className="text-[10px] font-bold text-slate-800">Result: {qc.result}</p>
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Std: {qc.standard_value}</p>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-xs font-bold text-slate-800 font-inter">
+                                                        {qc.result !== undefined && qc.result !== null && qc.result !== "" ? qc.result : "—"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-xs font-semibold text-slate-600 font-inter">
+                                                        {qc.standard_value !== undefined && qc.standard_value !== null && qc.standard_value !== "" ? qc.standard_value : "—"}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
@@ -564,7 +573,7 @@ const ManagerQualityPage = () => {
                                             </tr>
                                         )) : (
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                                     No quality audits found.
                                                 </td>
                                             </tr>
@@ -967,9 +976,9 @@ const ManagerQualityPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+                            className="w-full py-4 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
                         >
-                            Dismiss Audit Insight
+                            Close
                         </button>
                     </div>
                 )}
