@@ -134,7 +134,7 @@ const DailyProgressEntryPage = () => {
     fetchAssignedProjects();
   }, [user?.id, assignedProjects, selectedProjectId, setSelectedProjectId]);
 
-  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('summary');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
@@ -641,10 +641,10 @@ const DailyProgressEntryPage = () => {
         {/* ─── Navigation Tabs ──────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-8 border-b border-slate-200 mb-8 font-inter px-2">
           <button
-            onClick={() => setActiveTab('all')}
-            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+            onClick={() => setActiveTab('summary')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            ALL DAILY ENTRIES
+            PROJECT SUMMARY
           </button>
           <button
             onClick={() => setActiveTab('today')}
@@ -653,10 +653,10 @@ const DailyProgressEntryPage = () => {
             TODAY'S PROGRESS
           </button>
           <button
-            onClick={() => setActiveTab('summary')}
-            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+            onClick={() => setActiveTab('all')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            PROJECT SUMMARY
+            ALL DAILY ENTRIES
           </button>
           <button
             onClick={() => setActiveTab('history')}

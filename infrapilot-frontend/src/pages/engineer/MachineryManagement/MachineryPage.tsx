@@ -404,6 +404,15 @@ const MachineryPage = () => {
     }, [formNotification]);
 
 
+    const toTitleCase = (str: string) => {
+        return str
+            .toLowerCase()
+            .split(' ')
+            .filter(Boolean)
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
     const getMissingFields = (form: HTMLFormElement) => {
         const invalidElements = Array.from(form.elements).filter(
             (element) => (element as HTMLInputElement).validity?.valid === false
@@ -411,18 +420,21 @@ const MachineryPage = () => {
 
         return invalidElements.map(element => {
             const el = element as HTMLInputElement;
+            let rawLabel = '';
             if (el.labels && el.labels.length > 0) {
-                return el.labels[0].innerText.replace('*', '').trim();
+                rawLabel = el.labels[0].innerText;
+            } else {
+                const prev = el.previousElementSibling;
+                if (prev && prev.tagName.toLowerCase() === 'label') {
+                    rawLabel = (prev as HTMLLabelElement).innerText;
+                } else {
+                    const name = el.name || el.id;
+                    if (name) {
+                        rawLabel = name.split('_').join(' ');
+                    }
+                }
             }
-            const prev = el.previousElementSibling;
-            if (prev && prev.tagName.toLowerCase() === 'label') {
-                return (prev as HTMLLabelElement).innerText.replace('*', '').trim();
-            }
-            let name = el.name || el.id;
-            if (name) {
-                return name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            }
-            return 'Unknown Field';
+            return toTitleCase(rawLabel.replace(/\*/g, '').trim()) || 'Unknown Field';
         });
     };
 
@@ -749,10 +761,28 @@ const MachineryPage = () => {
             await equipmentService.deleteEquipment(itemToDelete);
             toast.success("Equipment deleted successfully!");
             setIsDeleteModalOpen(false);
+            setItemToDelete(null);
             const res = await equipmentService.listEquipment({ limit: 100, ...(selectedProjectId ? { project_id: selectedProjectId } : {}), ...(showDeleted ? { is_deleted: true } : {}) });
             setEquipmentList(res.items || []);
-        } catch (error) {
-            toast.error("Failed to delete equipment");
+        } catch (error: any) {
+            let errorMsg = "Cannot delete allocated equipment";
+            if (error?.response?.data?.detail) {
+                const detail = error.response.data.detail;
+                if (typeof detail === "string") {
+                    errorMsg = detail;
+                } else if (Array.isArray(detail)) {
+                    errorMsg = detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(", ");
+                } else if (typeof detail === "object") {
+                    errorMsg = detail.msg || detail.message || JSON.stringify(detail);
+                }
+            } else if (error?.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error?.message) {
+                errorMsg = error.message;
+            }
+            toast.error(errorMsg);
+            setIsDeleteModalOpen(false);
+            setItemToDelete(null);
         }
     };
 
@@ -841,8 +871,8 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         const missing: string[] = [];
-        if (!formData.equipment_id) missing.push('SELECT EQUIPMENT');
-        if (!formData.project_id) missing.push('TARGET PROJECT');
+        if (!formData.equipment_id) missing.push('Select Equipment');
+        if (!formData.project_id) missing.push('Target Project');
         if (!form.checkValidity() || missing.length > 0) {
             const missingFields = [...getMissingFields(form), ...missing];
             setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
@@ -850,8 +880,21 @@ const MachineryPage = () => {
         }
         setFormNotification(null);
         if (!formData.equipment_id || !formData.project_id) return;
+
+        // Prevent transfer if already allocated to the same target project
+        const selectedEq = equipmentList.find(eq => eq.id === formData.equipment_id);
+        if (selectedEq && selectedEq.project_id && Number(selectedEq.project_id) === Number(formData.project_id)) {
+            toast.dismiss();
+            toast.error("Already allocated to same project", { id: "transfer-error" });
+            setFormNotification({ type: 'error', message: "Already allocated to same project" });
+            return;
+        }
+
+        if (isTransferring) return;
+        setIsTransferring(true);
         try {
             await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
+            toast.dismiss();
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -870,8 +913,11 @@ const MachineryPage = () => {
             } else if (error.message) {
                 errorMsg = error.message;
             }
-            toast.error(errorMsg);
+            toast.dismiss();
+            toast.error(errorMsg, { id: "transfer-error" });
             setFormNotification({ type: 'error', message: errorMsg });
+        } finally {
+            setIsTransferring(false);
         }
     };
 
@@ -880,8 +926,8 @@ const MachineryPage = () => {
 
         const form = e.target as HTMLFormElement;
         const missing: string[] = [];
-        if (!createPurchaseForm.purchase_type) missing.push("PURCHASE TYPE");
-        if (!createPurchaseForm.project_id) missing.push("PROJECT");
+        if (!createPurchaseForm.purchase_type) missing.push("Purchase Type");
+        if (!createPurchaseForm.project_id) missing.push("Project");
 
         if (!form.checkValidity() || missing.length > 0) {
             const formMissing = getMissingFields(form);
@@ -1128,11 +1174,15 @@ const MachineryPage = () => {
             if (activeTab === "Rental") {
                 const report = await equipmentService.getCostReport({ project_id: selectedProjectId || undefined });
                 setCostReport(report);
-                const eq = equipmentList.find(e => e.id === formData.equipment_id);
-                if (eq) {
-                    setSelectedEquipment(eq);
-                    const logs = await equipmentService.listRental(eq.id);
-                    setSelectedEquipmentLogs(prev => ({ ...prev, rental: logs }));
+                // Keep filter set to All Equipment by default
+                setSelectedEquipment(null);
+                setRentalCurrentPage(1);
+                try {
+                    const flatRentals = await equipmentService.getAllRentals(selectedProjectId ? { project_id: selectedProjectId } : undefined);
+                    flatRentals.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
+                    setAllRentals(flatRentals);
+                } catch (e) {
+                    console.error("Failed to refresh all rentals", e);
                 }
             }
         } catch (error: any) {
@@ -1402,7 +1452,7 @@ const MachineryPage = () => {
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder="Search by name, code or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
+                            <input type="text" placeholder="Search by equipment or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
                         </div>
                         <select value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
                             <option value="All">All Conditions</option>
@@ -1413,10 +1463,7 @@ const MachineryPage = () => {
                             <option value="Allocated">Allocated</option>
                             <option value="Unallocated">Deallocated</option>
                         </select>
-                        <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer transition-colors hover:bg-slate-100" onClick={() => setShowDeleted(!showDeleted)}>
-                            <input type="checkbox" checked={showDeleted} onChange={() => { }} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
-                            <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
-                        </div>
+
                     </div>
                     <div className="flex gap-2">
                         <button onClick={() => setRefreshTrigger(prev => prev + 1)} className="px-5 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all shrink-0">
@@ -1501,7 +1548,14 @@ const MachineryPage = () => {
                                                     <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
                                                     <button onClick={() => handleGenerateQR(item.id, item.equipment_code)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Download QR"><QrCode className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => {
+                                                        if (item.project_id) {
+                                                            toast.error("Cannot delete allocated equipment");
+                                                            return;
+                                                        }
+                                                        setItemToDelete(item.id);
+                                                        setIsDeleteModalOpen(true);
+                                                    }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
                                         </div>
@@ -2403,7 +2457,7 @@ const MachineryPage = () => {
 
     return (
         <>
-            {renderFloatingToast()}
+            
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", activeTab]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -2549,7 +2603,7 @@ const MachineryPage = () => {
                         </div>
 
                         <div>
-                            <button onClick={() => setIsViewModalOpen(false)} className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Close</button>
+                            <button onClick={() => setIsViewModalOpen(false)} className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 hover:bg-blue-600 active:scale-95 font-inter">Close</button>
                         </div>
                     </div>
                 )}
@@ -2583,12 +2637,12 @@ const MachineryPage = () => {
                         <div className="flex justify-end gap-3 mt-8">
                             {allocationStatus.allocated ? (
                                 <>
-                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                                     <button type="button" onClick={handleDeallocate} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">Deallocate</button>
                                 </>
                             ) : (
                                 <>
-                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                                     <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
                                 </>
                             )}
@@ -2638,7 +2692,7 @@ const MachineryPage = () => {
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">{formData.usage_id ? "Edit Usage" : "Save Usage"}</button>
                     </div>
                 </form>
@@ -2694,7 +2748,7 @@ const MachineryPage = () => {
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20">{formData.id ? "Edit Schedule" : "Save Schedule"}</button>
                     </div>
                 </form>
@@ -2775,7 +2829,7 @@ const MachineryPage = () => {
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsRentalModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">{formData.id ? "Edit Rental" : "Save Rental"}</button>
                     </div>
                 </form>
@@ -2785,7 +2839,7 @@ const MachineryPage = () => {
             <Modal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} title="Audit Logs" maxWidth="max-w-2xl">
                 {selectedEquipment && (
                     <div className="p-6 font-inter">
-                        <div className={`rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden bg-slate-800`}>
+                        <div className="rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600">
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 mb-1">
                                     <h3 className="text-2xl font-bold tracking-tight">{selectedEquipment.equipment_name}</h3>
@@ -2948,7 +3002,7 @@ const MachineryPage = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setIsLogsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                            <button onClick={() => setIsLogsModalOpen(false)} className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 hover:bg-blue-600 active:scale-95 font-inter">Close</button>
                         </div>
                     </div>
                 )}
@@ -3060,10 +3114,12 @@ const MachineryPage = () => {
                             <CustomSelect
                                 value={formData.project_id ? String(formData.project_id) : ""}
                                 onChange={(val) => setFormData({ ...formData, project_id: val ? Number(val) : undefined })}
-                                options={projects.map(p => ({
-                                    id: String(p.id),
-                                    label: p.project_name || p.name || `Project #${p.id}`
-                                }))}
+                                options={projects
+                                    .filter(p => !formData.equipment_id || Number(p.id) !== Number(equipmentList.find(eq => eq.id === formData.equipment_id)?.project_id))
+                                    .map(p => ({
+                                        id: String(p.id),
+                                        label: p.project_name || p.name || `Project #${p.id}`
+                                    }))}
                                 placeholder="-- Select target project --"
                                 maxHeight="max-h-48"
                                 placement="bottom"
@@ -3075,43 +3131,56 @@ const MachineryPage = () => {
                         </div>
                     </div>
                     <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-100">
-                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                        <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95">Transfer Equipment</button>
+                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
+                        <button type="submit" disabled={isTransferring} className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">{isTransferring ? "Transferring..." : "Transfer Equipment"}</button>
                     </div>
                 </form>
             </Modal>
 
             {/* Purchase History Modal */}
             <Modal isOpen={isPurchaseHistoryModalOpen} onClose={() => setIsPurchaseHistoryModalOpen(false)} title="Purchase History" maxWidth="max-w-3xl">
-                <div className="p-6 font-inter bg-slate-50">
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
-                        {purchaseHistoryData && (Array.isArray(purchaseHistoryData) ? purchaseHistoryData.length > 0 : true) ? (
-                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                                {(Array.isArray(purchaseHistoryData) ? purchaseHistoryData : [purchaseHistoryData]).map((hist: any, index: number) => (
-                                    <div key={index} className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(hist.invoice_number)}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
-                                        <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{hist.notes || '-'}</p></div>
-                                        <div className="col-span-2"><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
-                                    </div>
-                                ))}
+                <div className="p-6 font-inter">
+                    <div className="rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600">
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-between gap-3 mb-1">
+                                <h3 className="text-2xl font-bold tracking-tight">Purchase History</h3>
+                                <span className="px-2.5 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                                    {purchaseHistoryData && Array.isArray(purchaseHistoryData) ? `${purchaseHistoryData.length} Records` : 'Audit Records'}
+                                </span>
                             </div>
-                        ) : (
-                            <div className="py-8 text-center text-slate-400 text-sm">No purchase data available</div>
-                        )}
+                            <p className="text-xs text-blue-100 font-medium">Historical purchase records and vendor invoices</p>
+                        </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+
+                    {purchaseHistoryData && (Array.isArray(purchaseHistoryData) ? purchaseHistoryData.length > 0 : true) ? (
+                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mb-6">
+                            {(Array.isArray(purchaseHistoryData) ? purchaseHistoryData : [purchaseHistoryData]).map((hist: any, index: number) => (
+                                <div key={index} className="grid grid-cols-2 gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{hist.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.project_name || projects.find(p => Number(p.id) === Number(hist.project_id))?.name || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{hist.boq_item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(hist.boq_item_id))?.name || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{hist.purchase_type || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{hist.asset_name || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{hist.purchase_date || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{hist.vendor_name || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800 font-mono">{String(hist.invoice_number || '-')}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{hist.quantity ?? '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{hist.unit_price?.toLocaleString() || '0'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{hist.total_amount?.toLocaleString() || '0'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{hist.warranty_end_date || '-'}</p></div>
+                                    <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{hist.created_at ? new Date(hist.created_at).toLocaleString() : '-'}</p></div>
+                                    <div className="col-span-2">
+                                        <p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p>
+                                        <p className="text-sm font-medium text-slate-900 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{hist.notes || 'No notes provided.'}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center text-slate-400 text-sm mb-6">No purchase data available</div>
+                    )}
+
+                    <div>
+                        <button onClick={() => setIsPurchaseHistoryModalOpen(false)} className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 hover:bg-blue-600 active:scale-95 font-inter">Close</button>
                     </div>
                 </div>
             </Modal>
@@ -3221,6 +3290,7 @@ const MachineryPage = () => {
                             <input
                                 required
                                 type="text"
+                                placeholder="Enter vendor name (e.g. ABC Suppliers)"
                                 value={createPurchaseForm.vendor_name || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, vendor_name: e.target.value })}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'VENDOR NAME') ? "!border-rose-500 !bg-rose-50" : ""}`}
@@ -3232,6 +3302,7 @@ const MachineryPage = () => {
                             <input
                                 required
                                 type="text"
+                                placeholder="e.g. INV-0020"
                                 value={createPurchaseForm.invoice_number || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, invoice_number: e.target.value })}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'INVOICE NUMBER') ? "!border-rose-500 !bg-rose-50" : ""}`}
@@ -3244,6 +3315,7 @@ const MachineryPage = () => {
                                 required
                                 type="number"
                                 min="1"
+                                placeholder="0"
                                 value={createPurchaseForm.quantity || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value), total_amount: parseInt(e.target.value) * (createPurchaseForm.unit_price || 0) })}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'QUANTITY') ? "!border-rose-500 !bg-rose-50" : ""}`}
@@ -3257,6 +3329,7 @@ const MachineryPage = () => {
                                 type="number"
                                 step="0.01"
                                 min="0"
+                                placeholder="0.00"
                                 value={createPurchaseForm.unit_price || ""}
                                 onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value), total_amount: (createPurchaseForm.quantity || 0) * parseFloat(e.target.value) })}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'UNIT PRICE') ? "!border-rose-500 !bg-rose-50" : ""}`}
@@ -3268,6 +3341,7 @@ const MachineryPage = () => {
                             <input
                                 readOnly
                                 type="number"
+                                placeholder="0.00"
                                 value={createPurchaseForm.total_amount || ""}
                                 className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm outline-none font-medium text-slate-500 cursor-not-allowed"
                             />
@@ -3278,11 +3352,12 @@ const MachineryPage = () => {
                         <textarea
                             value={createPurchaseForm.notes || ""}
                             onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, notes: e.target.value })}
+                            placeholder="Enter any additional notes or purchase terms..."
                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 min-h-[80px]"
                         ></textarea>
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                        <button type="button" onClick={() => setIsCreatePurchaseModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">{createPurchaseForm.id ? "Edit Purchase" : "Save Purchase"}</button>
                     </div>
                 </form>
@@ -3309,7 +3384,7 @@ const MachineryPage = () => {
                             <div className="text-center text-slate-400 py-4">Loading details...</div>
                         )}
                     </div>
-                    <button onClick={() => setIsViewUsageModalOpen(false)} className="w-full py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
+                    <button onClick={() => setIsViewUsageModalOpen(false)} className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 hover:bg-blue-600 active:scale-95 font-inter">Close</button>
                 </div>
             </Modal>
 
@@ -3319,14 +3394,14 @@ const MachineryPage = () => {
                     {viewMaintenanceItem ? (
                         <>
                             {/* Header Status & Equipment Banner */}
-                            <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl relative overflow-hidden">
-                                <div className="absolute right-0 top-0 w-48 h-48 bg-primary/15 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                                 <div className="relative z-10 flex items-start justify-between gap-4">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Equipment</span>
+                                            <span className="text-[10px] font-black tracking-widest uppercase text-blue-100">Equipment</span>
                                             {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_code && (
-                                                <span className="px-2 py-0.5 rounded bg-white/10 text-slate-300 text-[10px] font-mono font-bold">
+                                                <span className="px-2 py-0.5 rounded bg-white/20 text-white text-[10px] font-mono font-bold">
                                                     {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_code}
                                                 </span>
                                             )}
@@ -3334,17 +3409,17 @@ const MachineryPage = () => {
                                         <h3 className="text-2xl font-black tracking-tight text-white">
                                             {equipmentList.find(e => e.id === viewMaintenanceItem.equipment_id)?.equipment_name || viewMaintenanceItem.equipment_name || `ID: ${viewMaintenanceItem.equipment_id}`}
                                         </h3>
-                                        <p className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                        <p className="text-xs font-medium text-blue-100 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
                                             {projects.find(p => p.id === viewMaintenanceItem.project_id)?.project_name || projects.find(p => p.id === viewMaintenanceItem.project_id)?.name || viewMaintenanceItem.project_name || 'Project Unassigned'}
                                         </p>
                                     </div>
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm shrink-0 ${
                                         viewMaintenanceItem.is_completed 
-                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                            ? 'bg-emerald-500/25 text-white border border-emerald-400/40' 
+                                            : 'bg-amber-500/25 text-white border border-amber-400/40'
                                     }`}>
-                                        <span className={`w-2 h-2 rounded-full ${viewMaintenanceItem.is_completed ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                                        <span className={`w-2 h-2 rounded-full ${viewMaintenanceItem.is_completed ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
                                         {viewMaintenanceItem.is_completed ? 'COMPLETED' : 'PENDING'}
                                     </span>
                                 </div>
@@ -3427,34 +3502,45 @@ const MachineryPage = () => {
                 </div>
             </Modal>
             {/* View Purchase Modal */}
-            <Modal isOpen={isViewPurchaseModalOpen} onClose={() => setIsViewPurchaseModalOpen(false)} title="View Purchase" maxWidth="max-w-3xl">
-                <div className="p-6 font-inter bg-slate-50">
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4">Purchase Details</h3>
-                        {viewPurchaseData ? (
-                            <div className="grid grid-cols-2 gap-4 p-5 border border-slate-200 rounded-xl bg-white shadow-sm">
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800">{String(viewPurchaseData.invoice_number)}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
-                                <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p><p className="text-sm font-bold text-slate-800 max-w-full break-words">{viewPurchaseData.notes || '-'}</p></div>
-                                <div className="col-span-2"><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
+            <Modal isOpen={isViewPurchaseModalOpen} onClose={() => setIsViewPurchaseModalOpen(false)} title="View Purchase" maxWidth="max-w-2xl">
+                {viewPurchaseData ? (
+                    <div className="p-6 font-inter">
+                        <div className="rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600">
+                            <div className="relative z-10">
+                                <div className="flex items-center justify-between gap-3 mb-1">
+                                    <h3 className="text-2xl font-bold tracking-tight">{viewPurchaseData.asset_name || viewPurchaseData.vendor_name || 'Purchase Details'}</h3>
+                                    <span className="px-2.5 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{viewPurchaseData.purchase_type || 'PURCHASE'}</span>
+                                </div>
+                                <p className="text-xs text-blue-100 font-medium">Invoice Number: {String(viewPurchaseData.invoice_number || 'N/A')}</p>
                             </div>
-                        ) : (
-                            <div className="py-8 text-center text-slate-400 text-sm">No details available</div>
-                        )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Vendor Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.vendor_name || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Invoice Number</p><p className="text-sm font-bold text-slate-800 font-mono">{String(viewPurchaseData.invoice_number || '-')}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.quantity ?? '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Unit Price</p><p className="text-sm font-bold text-slate-800">₹{viewPurchaseData.unit_price?.toLocaleString() || '0'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Total Amount</p><p className="text-sm font-bold text-emerald-600">₹{viewPurchaseData.total_amount?.toLocaleString() || '0'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Warranty End Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.warranty_end_date || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.created_at ? new Date(viewPurchaseData.created_at).toLocaleString() : '-'}</p></div>
+                            <div className="col-span-2">
+                                <p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</p>
+                                <p className="text-sm font-medium text-slate-900 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{viewPurchaseData.notes || 'No notes provided.'}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button onClick={() => setIsViewPurchaseModalOpen(false)} className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-primary/20 hover:bg-blue-600 active:scale-95 font-inter">Close</button>
+                        </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => setIsViewPurchaseModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
-                    </div>
-                </div>
+                ) : (
+                    <div className="p-8 text-center text-slate-400 text-sm">No details available</div>
+                )}
             </Modal>
 
             {/* Delete Purchase Modal */}

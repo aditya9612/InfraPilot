@@ -90,7 +90,7 @@ const TransferEquipmentModal = ({ isOpen, onClose, equipmentList, projects, onSu
                     </div>
                 </div>
                 <div className="flex justify-end gap-3 pt-6">
-                    <button type="button" onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">
                         Cancel
                     </button>
                     <button type="submit" className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 border border-transparent transition-all shadow-md active:scale-95">

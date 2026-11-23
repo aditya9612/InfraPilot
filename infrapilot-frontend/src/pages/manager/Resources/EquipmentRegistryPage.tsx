@@ -66,7 +66,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
             >
                 {isViewOnly ? "Close" : "Cancel"}
             </button>
@@ -96,7 +96,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>Equipment Name {!isViewOnly && <span className="text-rose-500">*</span>}</label>
-                            <input type="text" required={!isViewOnly} value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={inputClasses} />
+                            <input type="text" required={!isViewOnly} placeholder="Enter equipment name (e.g. Excavator, Crane)" value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Assigned Project (Optional)</label>
@@ -121,11 +121,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         </div>
                         <div>
                             <label className={labelClasses}>Equipment Code {!isViewOnly && <span className="text-rose-500">*</span>}</label>
-                            <input type="text" required={!isViewOnly} value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
+                            <input type="text" required={!isViewOnly} placeholder="e.g. EQ-0027" value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Operator Name {!isViewOnly && <span className="text-rose-500">*</span>}</label>
-                            <input type="text" required={!isViewOnly} value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
+                            <input type="text" required={!isViewOnly} placeholder="Enter operator name" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Condition {!isViewOnly && <span className="text-rose-500">*</span>}</label>
@@ -146,7 +146,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         )}
                         <div>
                             <label className={labelClasses}>Rental Cost (₹) {!isViewOnly && <span className="text-rose-500">*</span>}</label>
-                            <input type="number" min="0" required={!isViewOnly} value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
+                            <input type="number" min="0" required={!isViewOnly} placeholder="0.00" value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Maintenance Date {!isViewOnly && <span className="text-rose-500">*</span>}</label>
@@ -943,7 +943,7 @@ const EquipmentRegistryPage = () => {
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder="Search by name, code or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            <input type="text" placeholder="Search by equipment or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                         </div>
                         <select value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20">
                             <option value="All">All Conditions</option>
@@ -953,10 +953,7 @@ const EquipmentRegistryPage = () => {
                             <option value="MAINTENANCE">MAINTENANCE</option>
                             <option value="DELETED">DELETED</option>
                         </select>
-                        <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer transition-colors hover:bg-slate-100" onClick={() => setShowDeleted(!showDeleted)}>
-                            <input type="checkbox" checked={showDeleted} onChange={() => { }} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
-                            <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
-                        </div>
+
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="text-sm text-slate-500">Use table actions to update equipment or log activity.</div>
@@ -1035,7 +1032,14 @@ const EquipmentRegistryPage = () => {
                                                     <button onClick={() => openMaintenanceModal(item)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
                                                     <button onClick={() => openRentalModal(item)} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
                                                     <button onClick={() => openLogsModal(item)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedEquipment(item); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => {
+                                                        if (item.project_id) {
+                                                            toast.error("Cannot delete allocated equipment");
+                                                            return;
+                                                        }
+                                                        setSelectedEquipment(item);
+                                                        setIsDeleteModalOpen(true);
+                                                    }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
                                         </div>
@@ -1812,11 +1816,11 @@ const EquipmentRegistryPage = () => {
                                     >
                                         Deallocate
                                     </button>
-                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                                 </>
                             ) : (
                                 <>
-                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                    <button type="button" onClick={() => setIsAllocateModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                                     <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">Allocate</button>
                                 </>
                             )}
@@ -1855,7 +1859,7 @@ const EquipmentRegistryPage = () => {
                         <textarea rows={2} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">Save Usage</button>
                     </div>
                 </form>
@@ -1914,7 +1918,7 @@ const EquipmentRegistryPage = () => {
                         </select>
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsMaintenanceModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">Save Maintenance</button>
                     </div>
                 </form>
@@ -1997,7 +2001,7 @@ const EquipmentRegistryPage = () => {
                             <textarea rows={2} disabled={isRentalViewOnly} value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
                         </div>
                         <div className="flex justify-end gap-3 mt-6">
-                            <button type="button" onClick={() => { setIsRentalModalOpen(false); setIsRentalViewOnly(false); }} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                            <button type="button" onClick={() => { setIsRentalModalOpen(false); setIsRentalViewOnly(false); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                             <button type="submit" className="px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20">{formData.id ? 'Update Rental' : 'Save Rental'}</button>
                         </div>
                     </form>
@@ -2023,7 +2027,7 @@ const EquipmentRegistryPage = () => {
                         </select>
                     </div>
                     <div className="flex justify-end gap-3 mt-3">
-                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold">Cancel</button>
+                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                         <button type="submit" className="px-6 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20">Initiate Transfer</button>
                     </div>
                 </form>

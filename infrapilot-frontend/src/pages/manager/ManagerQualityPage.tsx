@@ -68,9 +68,9 @@ const ManagerQualityPage = () => {
     const [formData, setFormData] = useState<QcFormData>({
         project_id: selectedProjectId || "",
         task_id: null, dsr_id: null,
-        inspection_type: "General", test_type: "Visual Check",
+        inspection_type: "", test_type: "",
         result: "", standard_value: "",
-        status: "Pass", engineer_name: "", remarks: ""
+        status: "", engineer_name: "", remarks: ""
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedTaskDetail, setSelectedTaskDetail] = useState<any | null>(null);
@@ -268,8 +268,8 @@ const ManagerQualityPage = () => {
         setFormNotification(null);
         setFormData({
             project_id: selectedProjectId || "", task_id: null, dsr_id: null,
-            inspection_type: "General", test_type: "Visual Check",
-            result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: ""
+            inspection_type: "", test_type: "",
+            result: "", standard_value: "", status: "", engineer_name: "", remarks: ""
         });
     };
 
@@ -730,7 +730,8 @@ const ManagerQualityPage = () => {
                                 }}
                                 className={`${inputCls} ${errors.inspection_type ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
                             >
-                                {INSPECTION_TYPES.map(t => <option key={t}>{t}</option>)}
+                                <option value="">-- Select inspection type --</option>
+                                {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                             {errors.inspection_type && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
@@ -744,7 +745,8 @@ const ManagerQualityPage = () => {
                                 }}
                                 className={`${inputCls} ${errors.test_type ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
                             >
-                                {TEST_TYPES.map(t => <option key={t}>{t}</option>)}
+                                <option value="">-- Select test type --</option>
+                                {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                             {errors.test_type && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required</p>}
                         </div>
@@ -808,6 +810,7 @@ const ManagerQualityPage = () => {
                                 className={`${inputCls} ${errors.status ? "!border-rose-500 !bg-rose-50 ring-2 ring-rose-200" : ""}`}
                                 required
                             >
+                                <option value="">-- Select status --</option>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>

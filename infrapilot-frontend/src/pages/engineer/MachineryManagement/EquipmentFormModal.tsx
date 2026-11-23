@@ -151,7 +151,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
             >
                 {isViewOnly ? "Close" : "Cancel"}
             </button>
@@ -173,17 +173,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={isViewOnly ? "View Equipment" : formData.id ? "Edit Equipment" : "Add Equipment"} maxWidth="max-w-3xl" footer={modalFooter}>
-            {/* Top-right floating toast */}
-            {formNotification && (
-                <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                    <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                    <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                        <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                        <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                    </div>
-                </div>
-            )}
+
             <form id="equipment-form" onSubmit={handleSubmit} noValidate className="p-2 sm:p-4 font-inter space-y-6">
                 {/* Inline Validation Error Banner */}
                 {formNotification && formNotification.type === 'error' && (
@@ -235,17 +225,17 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>Equipment Name <span className="text-rose-500">*</span></label>
-                            <input type="text" required maxLength={100} value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            <input type="text" required maxLength={100} placeholder="Enter equipment name (e.g. Excavator, Crane)" value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
                             {formNotification?.fields?.includes("Equipment Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className={labelClasses}>Equipment Code <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Code") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            <input type="text" required placeholder="e.g. EQ-0027" value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Equipment Code") ? "!border-rose-500 !bg-rose-50" : ""}`} />
                             {formNotification?.fields?.includes("Equipment Code") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
                             <label className={labelClasses}>Operator Name <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Operator Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            <input type="text" required placeholder="Enter operator name" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={`${inputClasses} ${formNotification?.fields?.includes("Operator Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />
                             {formNotification?.fields?.includes("Operator Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
@@ -260,7 +250,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                         <div className="flex gap-2">
                             <div className="flex-1">
                                 <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
-                                <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rental Cost") ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                                <input type="number" min="0" required placeholder="0.00" value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rental Cost") ? "!border-rose-500 !bg-rose-50" : ""}`} />
                                 {formNotification?.fields?.includes("Rental Cost") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
                             <div className="w-[140px]">

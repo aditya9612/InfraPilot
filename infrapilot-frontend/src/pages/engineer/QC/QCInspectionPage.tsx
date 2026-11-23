@@ -114,11 +114,11 @@ const QCInspectionPage = () => {
         project_id: 0,
         task_id: null,
         dsr_id: null,
-        inspection_type: "General",
-        test_type: "Visual Check",
+        inspection_type: "",
+        test_type: "",
         result: "",
         standard_value: "",
-        status: "Pass",
+        status: "",
         engineer_name: "",
         remarks: "",
         report_file: null
@@ -384,11 +384,11 @@ const QCInspectionPage = () => {
             project_id: projectId || 0,
             task_id: null,
             dsr_id: null,
-            inspection_type: "General",
-            test_type: "Visual Check",
+            inspection_type: "",
+            test_type: "",
             result: "",
             standard_value: "",
-            status: "Pass",
+            status: "",
             engineer_name: defaultEngineerName,
             remarks: "",
             report_file: null
@@ -1082,7 +1082,7 @@ const QCInspectionPage = () => {
                                     onChange={(val) => setFormData({ ...formData, inspection_type: val })}
                                     options={INSPECTION_TYPES.map(t => ({ id: t, label: t }))}
                                     error={!!errors.inspection_type}
-                                    placeholder="-- Select type --"
+                                    placeholder="-- Select inspection type --"
                                     searchable={false}
                                 />
                                 {errors.inspection_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
@@ -1096,7 +1096,7 @@ const QCInspectionPage = () => {
                                     onChange={(val) => setFormData({ ...formData, test_type: val })}
                                     options={TEST_TYPES.map(t => ({ id: t, label: t }))}
                                     error={!!errors.test_type}
-                                    placeholder="-- Select test --"
+                                    placeholder="-- Select test type --"
                                     searchable={false}
                                 />
                                 {errors.test_type && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-1 ml-0.5">Required</p>}
