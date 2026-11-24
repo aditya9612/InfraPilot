@@ -89,7 +89,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             )}
 
             {/* Body */}
-            <div className={`${bodyPadding} overflow-y-auto overscroll-contain bg-slate-50/30 flex-1 custom-scrollbar`}>
+            <div className={`${bodyPadding} overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-50/30 flex-1 custom-scrollbar`}>
               {children}
             </div>
 

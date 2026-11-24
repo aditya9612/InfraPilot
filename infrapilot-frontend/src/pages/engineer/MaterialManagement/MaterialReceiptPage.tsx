@@ -48,6 +48,7 @@ const MaterialReceiptPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     // Auto-hide form notification after 3 seconds
     useEffect(() => {
@@ -124,8 +125,8 @@ const MaterialReceiptPage = () => {
 
 
     // Forms
-    const [materialForm, setMaterialForm] = useState<Partial<MaterialItem & { material_master_id?: number }>>({ category: "Construction", unit: "Bags", rate_type: "FIXED" });
-    const [purchaseForm, setPurchaseForm] = useState<any>({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, supplier_id: 0, boq_item_id: undefined, issue_type: "SYSTEM" as IssueType });
+    const [materialForm, setMaterialForm] = useState<Partial<MaterialItem & { material_master_id?: number }>>({ category: "Construction", unit: "Bags" });
+    const [purchaseForm, setPurchaseForm] = useState<any>({ quantity: undefined, rate: undefined, amount_paid: undefined, project_id: 1, supplier_id: 0, boq_item_id: undefined, issue_type: "SYSTEM" as IssueType });
     const [supplierForm, setSupplierForm] = useState<Partial<Supplier>>({});
     const [poForm, setPoForm] = useState<Partial<PurchaseOrder>>({});
 
@@ -380,14 +381,30 @@ const MaterialReceiptPage = () => {
     const handleSupplierSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormNotification(null);
+        setFieldErrors({});
 
         const missingFields: string[] = [];
-        if (!supplierForm.name?.trim()) missingFields.push("Supplier Name");
-        if (!supplierForm.contactPerson?.trim()) missingFields.push("Contact Person");
-        if (!supplierForm.contact?.trim()) missingFields.push("Phone / Email");
-        if (!supplierForm.gst?.trim()) missingFields.push("GST Number");
+        const errors: Record<string, string> = {};
+
+        if (!supplierForm.name?.trim()) {
+            missingFields.push("Supplier Name");
+            errors["Supplier Name"] = "REQUIRED";
+        }
+        if (!supplierForm.contactPerson?.trim()) {
+            missingFields.push("Contact Person");
+            errors["Contact Person"] = "REQUIRED";
+        }
+        if (!supplierForm.contact?.trim()) {
+            missingFields.push("Phone / Email");
+            errors["Phone / Email"] = "REQUIRED";
+        }
+        if (!supplierForm.gst?.trim()) {
+            missingFields.push("GST Number");
+            errors["GST Number"] = "REQUIRED";
+        }
 
         if (missingFields.length > 0) {
+            setFieldErrors(errors);
             setFormNotification({
                 type: 'error',
                 message: 'Please fill all mandatory fields.',
@@ -399,10 +416,12 @@ const MaterialReceiptPage = () => {
         // Front-end validations
         const nameRegex = /^[a-zA-Z\s]+$/;
         if (!nameRegex.test(supplierForm.name || "")) {
+            setFieldErrors({ "Supplier Name": "Only letters and spaces allowed" });
             setFormNotification({ type: 'error', message: 'Supplier name must contain only letters and spaces.', fields: ["Supplier Name"] });
             return;
         }
         if (!nameRegex.test(supplierForm.contactPerson || "")) {
+            setFieldErrors({ "Contact Person": "Only letters and spaces allowed" });
             setFormNotification({ type: 'error', message: 'Contact person must contain only letters and spaces.', fields: ["Contact Person"] });
             return;
         }
@@ -410,11 +429,13 @@ const MaterialReceiptPage = () => {
         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactVal);
         const isPhone = /^\+?[0-9]{10,15}$/.test(contactVal);
         if (!isEmail && !isPhone) {
+            setFieldErrors({ "Phone / Email": "Enter valid phone (10-15 digits) or email" });
             setFormNotification({ type: 'error', message: 'Please enter a valid phone number (10-15 digits) or a valid email address.', fields: ["Phone / Email"] });
             return;
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(supplierForm.gst || "")) {
+            setFieldErrors({ "GST Number": "Invalid GST format (e.g. 27ABCDE1234F1Z5)" });
             setFormNotification({ type: 'error', message: 'Invalid GST Number format. e.g. 27ABCDE1234F1Z5', fields: ["GST Number"] });
             return;
         }
@@ -450,20 +471,57 @@ const MaterialReceiptPage = () => {
     const handlePOSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormNotification(null);
+        setFieldErrors({});
 
         const missingFields: string[] = [];
-        if (!poForm.project_id) missingFields.push("Project");
-        if (!poForm.supplier_id) missingFields.push("Supplier");
-        if (!poForm.material_id) missingFields.push("Material");
-        if (!poForm.quantity || poForm.quantity <= 0) missingFields.push("Quantity");
-        if (!poForm.rate || poForm.rate <= 0) missingFields.push("Rate");
+        const errors: Record<string, string> = {};
+
+        if (!poForm.project_id && !projectId) {
+            missingFields.push("Project");
+            errors["Project"] = "REQUIRED";
+        }
+        if (!poForm.supplier_id) {
+            missingFields.push("Supplier");
+            errors["Supplier"] = "REQUIRED";
+        }
+        if (!poForm.material_id) {
+            missingFields.push("Material");
+            errors["Material"] = "REQUIRED";
+        }
+        if (poForm.quantity === undefined || poForm.quantity === null || poForm.quantity <= 0) {
+            missingFields.push("Quantity");
+            errors["Quantity"] = "REQUIRED";
+        }
+        if (poForm.rate === undefined || poForm.rate === null || poForm.rate <= 0) {
+            missingFields.push("Rate");
+            errors["Rate"] = "REQUIRED";
+        }
 
         if (missingFields.length > 0) {
+            setFieldErrors(errors);
             setFormNotification({
                 type: 'error',
                 message: 'Please fill all mandatory fields.',
                 fields: missingFields
             });
+            return;
+        }
+
+        if (Number(poForm.quantity) > 99999999) {
+            setFieldErrors({ "Quantity": "Max 8 digits (Up to 9,99,99,999)" });
+            setFormNotification({ type: 'error', message: 'Quantity cannot exceed 99,999,999 (Max 8 digits).', fields: ["Quantity"] });
+            return;
+        }
+
+        if (Number(poForm.rate) > 99999999) {
+            setFieldErrors({ "Rate": "Max 8 digits (Up to 9,99,99,999)" });
+            setFormNotification({ type: 'error', message: 'Rate cannot exceed 99,999,999 (Max 8 digits).', fields: ["Rate"] });
+            return;
+        }
+
+        const calculatedTotal = Number(poForm.quantity) * Number(poForm.rate);
+        if (calculatedTotal > 999999999999) {
+            setFormNotification({ type: 'error', message: 'Calculated total amount exceeds maximum permissible limit.' });
             return;
         }
 
@@ -584,7 +642,7 @@ const MaterialReceiptPage = () => {
                         </p>
                     </div>
                     {activeTab === "Materials" && (
-                        <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); if (suppliers.length === 0) fetchSuppliers(projectId); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                        <button onClick={() => { setSelectedMaterial(null); setFieldErrors({}); setFormNotification(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: undefined, purchase_rate: undefined, quantity_purchased: undefined, payment_given: undefined, minimum_stock_level: undefined, project_id: projectId || undefined, material_master_id: undefined, supplier_id: undefined }); if (suppliers.length === 0) fetchSuppliers(projectId); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                             Add Material
                         </button>
                     )}
@@ -711,15 +769,21 @@ const MaterialReceiptPage = () => {
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                     <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                 </div>
-                                <button onClick={() => activeTab === "Materials" ? fetchMaterials(projectId) : activeTab === "Suppliers" ? fetchSuppliers(projectId) : fetchPOs(projectId)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button onClick={() => {
+                                    setSearchTerm("");
+                                    setCurrentPage(1);
+                                    if (activeTab === "Materials") fetchMaterials(projectId);
+                                    else if (activeTab === "Suppliers") fetchSuppliers(projectId);
+                                    else fetchPOs(projectId);
+                                }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm" title="Refresh and clear search"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200">
                                         {activeTab === "Materials" && (
                                             <tr>
-                                                <th className="px-6 py-4">Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
-                                                <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Level</th><th className="px-6 py-4 text-right">Rate</th>
+                                                <th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
+                                                <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Stock Level</th><th className="px-6 py-4 text-right">Purchase Rate</th>
                                                 <th className="px-6 py-4">Alert</th><th className="px-6 py-4">Supplier</th><th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
                                         )}
@@ -772,7 +836,7 @@ const MaterialReceiptPage = () => {
                                                                         setIsMaterialModalOpen(true);
                                                                     } catch (e) { toast.error("Failed to load details"); }
                                                                 }} className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                                <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
+                                                                <button onClick={() => { setSelectedMaterial(m); setFieldErrors({}); setFormNotification(null); setPurchaseForm({ quantity: undefined, rate: m.purchase_rate, amount_paid: undefined, project_id: projectId, issue_type: "SYSTEM" }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
                                                                 <button onClick={async () => {
                                                                     try {
                                                                         setSelectedMaterial(m);
@@ -850,18 +914,8 @@ const MaterialReceiptPage = () => {
 
             {/* Modals */}
             {/* Modal A & B: Add/Edit Material */}
-            <Modal isOpen={isMaterialModalOpen} onClose={() => setIsMaterialModalOpen(false)} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => setIsMaterialModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedMaterial ? "Edit Material" : "Save Material")}</button></>}>
-                {/* Top-right floating toast */}
-                {formNotification && (
-                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                        </div>
-                    </div>
-                )}
+            <Modal isOpen={isMaterialModalOpen} onClose={() => { setIsMaterialModalOpen(false); setFieldErrors({}); setFormNotification(null); }} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => { setIsMaterialModalOpen(false); setFieldErrors({}); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedMaterial ? "Edit Material" : "Save Material")}</button></>}>
+
                 <form id="material-form" noValidate onSubmit={handleMaterialSubmit} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -871,7 +925,7 @@ const MaterialReceiptPage = () => {
                             </svg>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-red-600">{formNotification.fields && formNotification.fields.length > 0 ? "Validation Error" : "Error"}</p>
-                                <p className="text-xs text-red-500 mt-0.5">{formNotification.fields && formNotification.fields.length > 0 ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{formNotification.message}</p>
                             </div>
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
@@ -879,23 +933,23 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {!selectedMaterial && <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Project") ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select>{formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>}
-                            <div><label className={labelClasses}>Material Master <span className="text-rose-500">*</span></label><select required value={materialForm.material_master_id || ""} onChange={e => setMaterialForm({ ...materialForm, material_master_id: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Material Master") ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select>{formNotification?.fields?.includes("Material Master") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Supplier") ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>{formNotification?.fields?.includes("Supplier") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            {!selectedMaterial && <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={materialForm.project_id || projectId || ""} onChange={e => { setMaterialForm({ ...materialForm, project_id: e.target.value ? Number(e.target.value) : undefined }); if (fieldErrors["Project"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Project"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Project"] ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select>{fieldErrors["Project"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Project"]}</p>}</div>}
+                            <div><label className={labelClasses}>Material Master <span className="text-rose-500">*</span></label><select required value={materialForm.material_master_id || ""} onChange={e => { setMaterialForm({ ...materialForm, material_master_id: e.target.value ? Number(e.target.value) : undefined }); if (fieldErrors["Material Master"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Material Master"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Material Master"] ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Material Master</option>{masterMaterials.map((m: any) => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}{m.brand ? ` — ${m.brand}` : ""}</option>)}</select>{fieldErrors["Material Master"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Material Master"]}</p>}</div>
+                            <div><label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label><select required value={materialForm.supplier_id || ""} onChange={e => { setMaterialForm({ ...materialForm, supplier_id: e.target.value ? Number(e.target.value) : undefined }); if (fieldErrors["Supplier"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Supplier"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Supplier"] ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>{fieldErrors["Supplier"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Supplier"]}</p>}</div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Purchase Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Purchase Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label><select required value={materialForm.rate_type || ""} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={`${inputClasses} ${formNotification?.fields?.includes("Rate Type") ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select>{formNotification?.fields?.includes("Rate Type") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label><input type="number" min="0.01" step="any" placeholder="Enter purchase rate" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={materialForm.purchase_rate !== undefined && materialForm.purchase_rate !== null ? materialForm.purchase_rate : ""} onChange={e => { setMaterialForm({ ...materialForm, purchase_rate: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Purchase Rate"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Purchase Rate"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Purchase Rate"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Purchase Rate"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Purchase Rate"]}</p>}</div>
+                            <div><label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label><select required value={materialForm.rate_type || ""} onChange={e => { setMaterialForm({ ...materialForm, rate_type: (e.target.value as RateType) || undefined }); if (fieldErrors["Rate Type"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Rate Type"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Rate Type"] ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Rate Type</option>{RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}</select>{fieldErrors["Rate Type"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Rate Type"]}</p>}</div>
                             {!selectedMaterial && (
                                 <>
-                                    <div><label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Qty Purchased") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Qty Purchased") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                                    <div><label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.payment_given || ""} onChange={e => setMaterialForm({ ...materialForm, payment_given: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Payment Given") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Payment Given") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                                    <div><label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label><input type="number" min="1" step="any" placeholder="Enter purchase quantity" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={materialForm.quantity_purchased !== undefined && materialForm.quantity_purchased !== null ? materialForm.quantity_purchased : ""} onChange={e => { setMaterialForm({ ...materialForm, quantity_purchased: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Qty Purchased"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Qty Purchased"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Qty Purchased"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Qty Purchased"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Qty Purchased"]}</p>}</div>
+                                    <div><label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label><input type="number" min="0" step="any" placeholder="Enter payment given" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={materialForm.payment_given !== undefined && materialForm.payment_given !== null ? materialForm.payment_given : ""} onChange={e => { setMaterialForm({ ...materialForm, payment_given: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Payment Given"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Payment Given"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Payment Given"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Payment Given"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Payment Given"]}</p>}</div>
                                 </>
                             )}
-                            <div><label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label><input type="number" required value={materialForm.minimum_stock_level || ""} onChange={e => setMaterialForm({ ...materialForm, minimum_stock_level: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Min Stock Level") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Min Stock Level") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label><input type="number" min="1" step="any" placeholder="Enter min stock level" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={materialForm.minimum_stock_level !== undefined && materialForm.minimum_stock_level !== null ? materialForm.minimum_stock_level : ""} onChange={e => { setMaterialForm({ ...materialForm, minimum_stock_level: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Min Stock Level"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Min Stock Level"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Min Stock Level"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Min Stock Level"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Min Stock Level"]}</p>}</div>
                         </div>
                     </div>
                 </form>
@@ -952,18 +1006,8 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal D: Record Purchase */}
-            <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPurchaseModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
-                {/* Top-right floating toast */}
-                {formNotification && (
-                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                        </div>
-                    </div>
-                )}
+            <Modal isOpen={isPurchaseModalOpen} onClose={() => { setIsPurchaseModalOpen(false); setFieldErrors({}); setFormNotification(null); }} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsPurchaseModalOpen(false); setFieldErrors({}); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
+
                 <form id="purchase-form" noValidate onSubmit={handleRecordPurchase} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -984,9 +1028,9 @@ const MaterialReceiptPage = () => {
                             <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Project") ? "!border-rose-500 !bg-rose-50" : ""}`}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select>{formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={`${inputClasses} ${formNotification?.fields?.includes("Issue Type") ? "!border-rose-500 !bg-rose-50" : ""}`}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select>{formNotification?.fields?.includes("Issue Type") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
                             <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={`${inputClasses} ${formNotification?.fields?.includes("Amount Paid") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Amount Paid") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" min="1" step="any" placeholder="Enter purchase quantity" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={purchaseForm.quantity !== undefined && purchaseForm.quantity !== null ? purchaseForm.quantity : ""} onChange={e => { setPurchaseForm({ ...purchaseForm, quantity: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Quantity"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Quantity"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Quantity"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Quantity"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Quantity"]}</p>}</div>
+                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" min="0.01" step="any" placeholder="Enter purchase rate" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={purchaseForm.rate !== undefined && purchaseForm.rate !== null ? purchaseForm.rate : ""} onChange={e => { setPurchaseForm({ ...purchaseForm, rate: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Rate"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Rate"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Rate"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Rate"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Rate"]}</p>}</div>
+                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" min="0" step="any" placeholder="Enter amount paid" onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} required value={purchaseForm.amount_paid !== undefined && purchaseForm.amount_paid !== null ? purchaseForm.amount_paid : ""} onChange={e => { setPurchaseForm({ ...purchaseForm, amount_paid: e.target.value === "" ? undefined : Number(e.target.value) }); if (fieldErrors["Amount Paid"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Amount Paid"]; return n; }); }} className={`${inputClasses} ${fieldErrors["Amount Paid"] ? "!border-rose-500 !bg-rose-50" : ""}`} />{fieldErrors["Amount Paid"] && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Amount Paid"]}</p>}</div>
                         </div>
                     </div>
                 </form>
@@ -1025,18 +1069,8 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal G & H: Add/Edit Supplier */}
-            <Modal isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Edit Supplier" : "Save Supplier")}</button></>}>
-                {/* Top-right floating toast */}
-                {formNotification && (
-                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                        </div>
-                    </div>
-                )}
+            <Modal isOpen={isSupplierModalOpen} onClose={() => { setIsSupplierModalOpen(false); setFieldErrors({}); setFormNotification(null); }} title={selectedSupplier ? "Edit Supplier" : "Add Supplier"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsSupplierModalOpen(false); setFieldErrors({}); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Edit Supplier" : "Save Supplier")}</button></>}>
+
                 <form id="supplier-form" noValidate onSubmit={handleSupplierSubmit} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -1054,18 +1088,90 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`${inputClasses} ${formNotification?.fields?.includes("Supplier Name") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Supplier Name") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={`${inputClasses} ${formNotification?.fields?.includes("Contact Person") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Contact Person") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label><input required type="text" pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" title="Please enter a valid phone number (10-15 digits) or a valid email address." value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={`${inputClasses} text-slate-900 font-semibold placeholder:text-slate-400 ${formNotification?.fields?.includes("Phone / Email") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("Phone / Email") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={`${inputClasses} ${formNotification?.fields?.includes("GST Number") ? "!border-rose-500 !bg-rose-50" : ""}`} />{formNotification?.fields?.includes("GST Number") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
+                            <div>
+                                <label className={labelClasses}>Supplier Name <span className="text-rose-500">*</span></label>
+                                <input 
+                                    required 
+                                    placeholder="Enter supplier name"
+                                    value={supplierForm.name || ""} 
+                                    onChange={e => {
+                                        setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') });
+                                        if (fieldErrors["Supplier Name"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Supplier Name"]; return n; });
+                                    }} 
+                                    className={`${inputClasses} ${fieldErrors["Supplier Name"] || formNotification?.fields?.includes("Supplier Name") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                />
+                                {(fieldErrors["Supplier Name"] || formNotification?.fields?.includes("Supplier Name")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Supplier Name"] || "REQUIRED"}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Contact Person <span className="text-rose-500">*</span></label>
+                                <input 
+                                    required 
+                                    placeholder="Enter contact person name"
+                                    value={supplierForm.contactPerson || ""} 
+                                    onChange={e => {
+                                        setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') });
+                                        if (fieldErrors["Contact Person"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Contact Person"]; return n; });
+                                    }} 
+                                    className={`${inputClasses} ${fieldErrors["Contact Person"] || formNotification?.fields?.includes("Contact Person") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                />
+                                {(fieldErrors["Contact Person"] || formNotification?.fields?.includes("Contact Person")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Contact Person"] || "REQUIRED"}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Phone / Email <span className="text-rose-500">*</span></label>
+                                <input 
+                                    required 
+                                    type="text" 
+                                    placeholder="Enter phone number or email"
+                                    pattern="^(\+?[0-9]{10,15}|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$" 
+                                    title="Please enter a valid phone number (10-15 digits) or a valid email address." 
+                                    value={supplierForm.contact || ""} 
+                                    onChange={e => {
+                                        setSupplierForm({ ...supplierForm, contact: e.target.value });
+                                        if (fieldErrors["Phone / Email"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Phone / Email"]; return n; });
+                                    }} 
+                                    className={`${inputClasses} text-slate-900 font-semibold placeholder:text-slate-400 ${fieldErrors["Phone / Email"] || formNotification?.fields?.includes("Phone / Email") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                />
+                                {(fieldErrors["Phone / Email"] || formNotification?.fields?.includes("Phone / Email")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Phone / Email"] || "REQUIRED"}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>GST Number <span className="text-rose-500">*</span></label>
+                                <input 
+                                    required 
+                                    placeholder="Enter GST number (e.g. 27ABCDE1234F1Z5)"
+                                    value={supplierForm.gst || ""} 
+                                    onChange={e => {
+                                        setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) });
+                                        if (fieldErrors["GST Number"]) setFieldErrors(prev => { const n = { ...prev }; delete n["GST Number"]; return n; });
+                                    }} 
+                                    className={`${inputClasses} ${fieldErrors["GST Number"] || formNotification?.fields?.includes("GST Number") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                />
+                                {(fieldErrors["GST Number"] || formNotification?.fields?.includes("GST Number")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["GST Number"] || "REQUIRED"}</p>
+                                )}
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Address</label>
+                                <textarea 
+                                    placeholder="Enter supplier address (optional)"
+                                    value={supplierForm.address || ""} 
+                                    onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} 
+                                    className={inputClasses} 
+                                    rows={3} 
+                                />
+                            </div>
                         </div>
                     </div>
                 </form>
             </Modal>
 
             {/* Modal I: View Supplier */}
-            <Modal isOpen={isViewSupplierOpen} onClose={() => setIsViewSupplierOpen(false)} title="Supplier Details" maxWidth="max-w-3xl">
+            <Modal isOpen={isViewSupplierOpen} onClose={() => setIsViewSupplierOpen(false)} title="Supplier Details" maxWidth="max-w-3xl" footer={<div className="flex justify-end w-full"><button type="button" onClick={() => setIsViewSupplierOpen(false)} className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">Close</button></div>}>
                 {selectedSupplier && (
                     <div className="p-6 space-y-6">
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
@@ -1090,19 +1196,9 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal J & L: Add/Edit PO */}
-            <Modal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPOModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedPO ? "Edit PO" : "Save PO")}</button></>}>
-                {/* Top-right floating toast */}
-                {formNotification && (
-                    <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                        <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                        <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                            <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                            <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                        </div>
-                    </div>
-                )}
-                <form id="po-form" noValidate onSubmit={handlePOSubmit} className="space-y-6">
+            <Modal isOpen={isPOModalOpen} onClose={() => { setIsPOModalOpen(false); setFieldErrors({}); setFormNotification(null); }} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsPOModalOpen(false); setFieldErrors({}); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedPO ? "Edit PO" : "Save PO")}</button></>}>
+
+                <form id="po-form" noValidate onSubmit={handlePOSubmit} className="space-y-6 w-full max-w-full overflow-hidden">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
                         <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
@@ -1116,14 +1212,15 @@ const MaterialReceiptPage = () => {
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
                     )}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                             <div className="z-[60]">
                                 <CustomSelect
                                     label="Project"
                                     required={true}
                                     icon={Building2}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Project")}
                                     value={poForm.project_id || projectId}
                                     onChange={(val: any) => {
@@ -1154,6 +1251,7 @@ const MaterialReceiptPage = () => {
                                     label="Supplier"
                                     required={true}
                                     icon={UserCheck}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Supplier")}
                                     value={poForm.supplier_id}
                                     onChange={(val: any) => setPoForm({ ...poForm, supplier_id: val ? Number(val) : undefined })}
@@ -1176,6 +1274,7 @@ const MaterialReceiptPage = () => {
                                     label="Material"
                                     required={true}
                                     icon={Package}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Material")}
                                     value={poForm.material_id}
                                     onChange={(val: any) => {
@@ -1205,6 +1304,7 @@ const MaterialReceiptPage = () => {
                                 <CustomSelect
                                     label="BOQ Item"
                                     icon={ListTodo}
+                                    placement="bottom"
                                     value={poForm.boq_item_id}
                                     onChange={(val: any) => setPoForm({ ...poForm, boq_item_id: val ? Number(val) : undefined })}
                                     options={[
@@ -1220,12 +1320,72 @@ const MaterialReceiptPage = () => {
                                     maxHeight="max-h-48"
                                 />
                             </div>
-                            <div><label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Quantity <span className="text-rose-500">*</span></label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} placeholder="Enter quantity" />{formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
-                            <div><label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Rate <span className="text-rose-500">*</span></label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} placeholder="Enter rate" />{formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}</div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Quantity <span className="text-rose-500">*</span></label>
+                                <input 
+                                    type="number" 
+                                    min="1"
+                                    max="99999999"
+                                    step="any"
+                                    required 
+                                    value={poForm.quantity !== undefined && poForm.quantity !== null ? poForm.quantity : ""} 
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const raw = e.target.value;
+                                        const parts = raw.split('.');
+                                        if (parts[0].length > 8) {
+                                            const cappedInt = parts[0].slice(0, 8);
+                                            const cappedVal = parts.length > 1 ? Number(`${cappedInt}.${parts[1].slice(0, 2)}`) : Number(cappedInt);
+                                            setPoForm({ ...poForm, quantity: cappedVal });
+                                            setFieldErrors(prev => ({ ...prev, "Quantity": "Max 8 digits (Up to 9,99,99,999)" }));
+                                            return;
+                                        }
+                                        setPoForm({ ...poForm, quantity: raw === "" ? undefined : Number(raw) });
+                                        if (fieldErrors["Quantity"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Quantity"]; return n; });
+                                    }} 
+                                    className={`w-full min-w-0 px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${fieldErrors["Quantity"] || formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                    placeholder="Enter quantity" 
+                                />
+                                {(fieldErrors["Quantity"] || formNotification?.fields?.includes("Quantity")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Quantity"] || "REQUIRED"}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Rate <span className="text-rose-500">*</span></label>
+                                <input 
+                                    type="number" 
+                                    min="0.01"
+                                    max="99999999"
+                                    step="any"
+                                    required 
+                                    value={poForm.rate !== undefined && poForm.rate !== null ? poForm.rate : ""} 
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const raw = e.target.value;
+                                        const parts = raw.split('.');
+                                        if (parts[0].length > 8) {
+                                            const cappedInt = parts[0].slice(0, 8);
+                                            const cappedVal = parts.length > 1 ? Number(`${cappedInt}.${parts[1].slice(0, 2)}`) : Number(cappedInt);
+                                            setPoForm({ ...poForm, rate: cappedVal });
+                                            setFieldErrors(prev => ({ ...prev, "Rate": "Max 8 digits (Up to 9,99,99,999)" }));
+                                            return;
+                                        }
+                                        setPoForm({ ...poForm, rate: raw === "" ? undefined : Number(raw) });
+                                        if (fieldErrors["Rate"]) setFieldErrors(prev => { const n = { ...prev }; delete n["Rate"]; return n; });
+                                    }} 
+                                    className={`w-full min-w-0 px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm ${fieldErrors["Rate"] || formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`} 
+                                    placeholder="Enter rate" 
+                                />
+                                {(fieldErrors["Rate"] || formNotification?.fields?.includes("Rate")) && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">{fieldErrors["Rate"] || "REQUIRED"}</p>
+                                )}
+                            </div>
 
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
-                                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>
-                                <span className="font-black text-2xl text-purple-600">{formatINR((poForm.quantity || 0) * (poForm.rate || 0))}</span>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 md:col-span-2 overflow-hidden min-w-0">
+                                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest shrink-0">Total Amount</span>
+                                <span className="font-black text-xl sm:text-2xl text-purple-600 text-right break-all min-w-0" title={formatINR((poForm.quantity || 0) * (poForm.rate || 0))}>
+                                    {formatINR((poForm.quantity || 0) * (poForm.rate || 0))}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1243,7 +1403,7 @@ const MaterialReceiptPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsViewPOOpen(false)}
-                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl shadow transition-colors"
+                            className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             Close
                         </button>

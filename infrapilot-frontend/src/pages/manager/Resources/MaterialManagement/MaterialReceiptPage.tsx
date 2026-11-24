@@ -39,6 +39,7 @@ const MaterialReceiptPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     // Data States
     const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -334,11 +335,25 @@ const MaterialReceiptPage = () => {
         if (missingFields.length > 0) {
             setFormNotification({
                 type: 'error',
-                message: `Please fill in all mandatory fields: ${missingFields.join(', ')}`,
+                message: `Mandatory fields required: ${missingFields.join(', ')}`,
                 fields: missingFields
             });
-            toast.error(`Please fill in required fields: ${missingFields.join(', ')}`);
             return;
+        }
+
+        if (!selectedMaterial && materialForm.purchase_rate !== undefined && materialForm.quantity_purchased !== undefined && materialForm.payment_given !== undefined) {
+            const rate = Number(materialForm.purchase_rate) || 0;
+            const qty = Number(materialForm.quantity_purchased) || 0;
+            const payment = Number(materialForm.payment_given) || 0;
+            const total = rate * qty;
+            if (rate > 0 && qty > 0 && payment > total) {
+                setFormNotification({
+                    type: 'error',
+                    message: 'Payment cannot exceed total amount',
+                    fields: ['Payment Given']
+                });
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -459,7 +474,36 @@ const MaterialReceiptPage = () => {
     };
 
     const handlePOSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault();
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (!poForm.project_id && !projectId) missingFields.push("Project");
+        if (!poForm.supplier_id) missingFields.push("Supplier");
+        if (!poForm.material_id) missingFields.push("Material");
+        if (!poForm.quantity || poForm.quantity <= 0) missingFields.push("Quantity");
+        if (!poForm.rate || poForm.rate <= 0) missingFields.push("Rate");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: 'Please fill all mandatory fields.',
+                fields: missingFields
+            });
+            return;
+        }
+
+        if (Number(poForm.quantity) > 99999999) {
+            setFormNotification({ type: 'error', message: 'Quantity cannot exceed 99,999,999 (Max 8 digits).', fields: ["Quantity"] });
+            return;
+        }
+
+        if (Number(poForm.rate) > 99999999) {
+            setFormNotification({ type: 'error', message: 'Rate cannot exceed 99,999,999 (Max 8 digits).', fields: ["Rate"] });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
             if (selectedPO) await materialService.updatePurchaseOrder(selectedPO.id, poForm);
             else await materialService.createPurchaseOrder({ ...poForm, project_id: poForm.project_id || projectId || 1, supplier_id: poForm.supplier_id!, material_id: poForm.material_id!, quantity: poForm.quantity!, rate: poForm.rate! });
@@ -672,15 +716,21 @@ const MaterialReceiptPage = () => {
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                     <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                 </div>
-                                <button onClick={() => activeTab === "Materials" ? fetchMaterials(projectId) : activeTab === "Suppliers" ? fetchSuppliers(projectId) : fetchPOs(projectId)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button onClick={() => {
+                                    setSearchTerm("");
+                                    setCurrentPage(1);
+                                    if (activeTab === "Materials") fetchMaterials(projectId);
+                                    else if (activeTab === "Suppliers") fetchSuppliers(projectId);
+                                    else fetchPOs(projectId);
+                                }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm" title="Refresh and clear search"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200">
                                         {activeTab === "Materials" && (
                                             <tr>
-                                                <th className="px-6 py-4">Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
-                                                <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Level</th><th className="px-6 py-4 text-right">Rate</th>
+                                                <th className="px-6 py-4">Material Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
+                                                <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Stock Level</th><th className="px-6 py-4 text-right">Purchase Rate</th>
                                                 <th className="px-6 py-4">Alert</th><th className="px-6 py-4">Supplier</th><th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
                                         )}
@@ -808,7 +858,7 @@ const MaterialReceiptPage = () => {
 
             {/* Modals */}
             {/* Modal A & B: Add/Edit Material */}
-            <Modal isOpen={isMaterialModalOpen} onClose={() => { setIsMaterialModalOpen(false); setFormNotification(null); }} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => { setIsMaterialModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Material"}</button></>}>
+            <Modal isOpen={isMaterialModalOpen} onClose={() => { setIsMaterialModalOpen(false); setFormNotification(null); }} title={selectedMaterial ? "Edit Material" : "Add Material"} maxWidth="max-w-4xl" footer={<><button type="button" onClick={() => { setIsMaterialModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="material-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Material"}</button></>}>
                 <form id="material-form" noValidate onSubmit={handleMaterialSubmit} className="space-y-6">
                     {/* Top Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -896,6 +946,10 @@ const MaterialReceiptPage = () => {
                                 <label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
+                                    min="0.01"
+                                    step="any"
+                                    placeholder="Enter purchase rate"
+                                    onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                                     value={materialForm.purchase_rate ?? ""}
                                     onChange={e => {
                                         setMaterialForm({ ...materialForm, purchase_rate: e.target.value === "" ? ("" as any) : Number(e.target.value) });
@@ -930,6 +984,10 @@ const MaterialReceiptPage = () => {
                                         <label className={labelClasses}>Qty Purchased <span className="text-rose-500">*</span></label>
                                         <input
                                             type="number"
+                                            min="1"
+                                            step="any"
+                                            placeholder="Enter purchase quantity"
+                                            onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                                             value={materialForm.quantity_purchased ?? ""}
                                             onChange={e => {
                                                 setMaterialForm({ ...materialForm, quantity_purchased: e.target.value === "" ? ("" as any) : Number(e.target.value) });
@@ -945,6 +1003,10 @@ const MaterialReceiptPage = () => {
                                         <label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label>
                                         <input
                                             type="number"
+                                            min="0"
+                                            step="any"
+                                            placeholder="Enter payment given"
+                                            onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                                             value={materialForm.payment_given ?? ""}
                                             onChange={e => {
                                                 setMaterialForm({ ...materialForm, payment_given: e.target.value === "" ? ("" as any) : Number(e.target.value) });
@@ -962,6 +1024,10 @@ const MaterialReceiptPage = () => {
                                 <label className={labelClasses}>Min Stock Level <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
+                                    min="1"
+                                    step="any"
+                                    placeholder="Enter min stock level"
+                                    onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                                     value={materialForm.minimum_stock_level ?? ""}
                                     onChange={e => {
                                         setMaterialForm({ ...materialForm, minimum_stock_level: e.target.value === "" ? ("" as any) : Number(e.target.value) });
@@ -1044,7 +1110,7 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal D: Record Purchase */}
-            <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPurchaseModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
+            <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPurchaseModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
                 <form id="purchase-form" onSubmit={handleRecordPurchase} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -1105,7 +1171,7 @@ const MaterialReceiptPage = () => {
                 title={selectedSupplier ? "Edit Supplier" : "Add Supplier"}
                 maxWidth="max-w-2xl"
                 footer={<>
-                    <button type="button" onClick={() => { setIsSupplierModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button>
+                    <button type="button" onClick={() => { setIsSupplierModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
                     <button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Update Supplier" : "Save Supplier")}</button>
                 </>}
             >
@@ -1269,8 +1335,8 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal J & L: Add/Edit PO */}
-            <Modal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPOModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save PO"}</button></>}>
-                <form id="po-form" onSubmit={handlePOSubmit} className="space-y-6">
+            <Modal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} title={selectedPO ? "Edit PO" : "Create PO"} maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPOModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="po-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save PO"}</button></>}>
+                <form id="po-form" onSubmit={handlePOSubmit} className="space-y-6 w-full max-w-full overflow-hidden">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
                         <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
@@ -1284,13 +1350,14 @@ const MaterialReceiptPage = () => {
                             <button type="button" onClick={() => setFormNotification(null)} className="text-red-300 hover:text-red-500 text-base leading-none">×</button>
                         </div>
                     )}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                             <div className="z-[60]">
                                 <CustomSelect
                                     label="Project"
                                     required={true}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Project")}
                                     value={poForm.project_id || projectId || ""}
                                     onChange={(val: any) => {
@@ -1320,6 +1387,7 @@ const MaterialReceiptPage = () => {
                                 <CustomSelect
                                     label="Supplier"
                                     required={true}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Supplier")}
                                     value={poForm.supplier_id ? poForm.supplier_id.toString() : ""}
                                     onChange={(val: any) => {
@@ -1348,6 +1416,7 @@ const MaterialReceiptPage = () => {
                                 <CustomSelect
                                     label="Material"
                                     required={true}
+                                    placement="bottom"
                                     error={formNotification?.fields?.includes("Material")}
                                     value={poForm.material_id ? poForm.material_id.toString() : ""}
                                     onChange={(val: any) => {
@@ -1376,6 +1445,7 @@ const MaterialReceiptPage = () => {
                             <div className="z-[57]">
                                 <CustomSelect
                                     label="BOQ Item"
+                                    placement="bottom"
                                     value={poForm.boq_item_id ? poForm.boq_item_id.toString() : ""}
                                     onChange={(val: any) => setPoForm({ ...poForm, boq_item_id: val ? Number(val) : undefined })}
                                     options={[
@@ -1395,28 +1465,60 @@ const MaterialReceiptPage = () => {
                                 <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Quantity <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
+                                    min="1"
+                                    max="99999999"
+                                    step="any"
                                     required
-                                    value={poForm.quantity || ""}
-                                    onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm"
+                                    value={poForm.quantity !== undefined && poForm.quantity !== null ? poForm.quantity : ""}
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const raw = e.target.value;
+                                        const parts = raw.split('.');
+                                        if (parts[0].length > 8) {
+                                            const cappedInt = parts[0].slice(0, 8);
+                                            const cappedVal = parts.length > 1 ? Number(`${cappedInt}.${parts[1].slice(0, 2)}`) : Number(cappedInt);
+                                            setPoForm({ ...poForm, quantity: cappedVal });
+                                            return;
+                                        }
+                                        setPoForm({ ...poForm, quantity: raw === "" ? undefined : Number(raw) });
+                                    }}
+                                    className="w-full min-w-0 px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm"
                                     placeholder="Enter quantity"
                                 />
+                                {formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED (Max 8 digits)</p>}
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 ml-1">Rate <span className="text-rose-500">*</span></label>
                                 <input
                                     type="number"
+                                    min="0.01"
+                                    max="99999999"
+                                    step="any"
                                     required
-                                    value={poForm.rate || ""}
-                                    onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm"
-                                    placeholder="Enter rate"
+                                    value={poForm.rate !== undefined && poForm.rate !== null ? poForm.rate : ""}
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const raw = e.target.value;
+                                        const parts = raw.split('.');
+                                        if (parts[0].length > 8) {
+                                            const cappedInt = parts[0].slice(0, 8);
+                                            const cappedVal = parts.length > 1 ? Number(`${cappedInt}.${parts[1].slice(0, 2)}`) : Number(cappedInt);
+                                            setPoForm({ ...poForm, rate: cappedVal });
+                                            return;
+                                        }
+                                        setPoForm({ ...poForm, rate: raw === "" ? undefined : Number(raw) });
+                                    }}
+                                    className="w-full min-w-0 px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 text-slate-800 text-sm font-semibold rounded-xl outline-none transition-all placeholder:text-slate-400 shadow-sm"
+                                    placeholder="Enter purchase rate"
                                 />
+                                {formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED (Max 8 digits)</p>}
                             </div>
 
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
-                                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>
-                                <span className="font-black text-2xl text-purple-600">{formatINR((poForm.quantity || 0) * (poForm.rate || 0))}</span>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 md:col-span-2 overflow-hidden min-w-0">
+                                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest shrink-0">Total Amount</span>
+                                <span className="font-black text-xl sm:text-2xl text-purple-600 text-right break-all min-w-0" title={formatINR((poForm.quantity || 0) * (poForm.rate || 0))}>
+                                    {formatINR((poForm.quantity || 0) * (poForm.rate || 0))}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1434,7 +1536,7 @@ const MaterialReceiptPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsViewPOOpen(false)}
-                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl shadow transition-colors"
+                            className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             Close
                         </button>

@@ -102,6 +102,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         }
         return options.find(o => String(o.id) === String(value));
     }, [options, value]);
+
+    const isPlaceholder = !value || !selectedOption || selectedOption.id === '' || selectedOption.id === null || selectedOption.id === undefined;
     
     const filteredOptions = useMemo(() => {
         if (!searchable || !searchTerm) return options;
@@ -126,9 +128,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen(o => !o)}
-                className={`w-full px-4 py-2.5 ${disabled ? 'bg-slate-50 opacity-70 cursor-not-allowed' : 'bg-white cursor-pointer'} border ${error ? 'border-rose-500 ring-2 ring-rose-500/20' : open ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all flex items-center justify-between ${!selectedOption ? 'text-slate-400' : 'text-slate-800'}`}
+                className={`w-full px-4 py-2.5 ${disabled ? 'bg-slate-50 opacity-70 cursor-not-allowed' : 'bg-white cursor-pointer'} border ${error ? 'border-rose-500 ring-2 ring-rose-500/20' : open ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all flex items-center justify-between ${isPlaceholder ? 'text-slate-400' : 'text-slate-800'}`}
             >
-                <span className="truncate font-medium">{selectedOption ? selectedOption.label : placeholder}</span>
+                <span className={`truncate ${isPlaceholder ? 'text-slate-400 font-normal' : 'text-slate-800 font-medium'}`}>{selectedOption ? selectedOption.label : placeholder}</span>
                 <ChevronDown className={`w-4 h-4 shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''} ${error ? 'text-rose-400' : open ? 'text-primary' : 'text-slate-400'}`} />
             </button>
 

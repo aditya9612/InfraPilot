@@ -255,6 +255,7 @@ const MachineryPage = () => {
 
     // New Modals for Transfer & Purchase
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [isTransferring, setIsTransferring] = useState(false);
     const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
     const [purchaseHistoryData, setPurchaseHistoryData] = useState<any>(null);
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
