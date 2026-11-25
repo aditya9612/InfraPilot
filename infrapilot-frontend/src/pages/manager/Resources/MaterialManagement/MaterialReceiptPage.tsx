@@ -1132,7 +1132,25 @@ const MaterialReceiptPage = () => {
                             <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: Number(e.target.value) || undefined })} className={inputClasses}><option value="">Select BOQ</option>{boqs.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}</select></div>
+                            <div className="z-[59]">
+                                <CustomSelect
+                                    label="BOQ Item"
+                                    value={purchaseForm.boq_item_id || ""}
+                                    onChange={(val: any) => setPurchaseForm({ ...purchaseForm, boq_item_id: val ? Number(val) : undefined })}
+                                    options={[
+                                        { id: '', label: 'Select BOQ' },
+                                        ...boqs.map((b: any) => ({
+                                            id: (b.id || b.boq_item_id || b.item_id)?.toString(),
+                                            label: `${b.item_name || b.item_description || b.description || b.work_description || `BOQ #${b.id}`}${b.unit ? ` (${b.unit})` : ""}`,
+                                            searchKey: b.item_name || b.item_description || b.description || b.work_description || `BOQ #${b.id}`
+                                        }))
+                                    ]}
+                                    placeholder="Select BOQ"
+                                    placement="bottom"
+                                    maxHeight="max-h-48"
+                                    searchable={boqs.length > 5}
+                                />
+                            </div>
                             <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>
                     </div>

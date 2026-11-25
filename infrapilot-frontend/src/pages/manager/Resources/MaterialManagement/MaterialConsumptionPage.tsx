@@ -229,7 +229,17 @@ const MaterialConsumptionPage = () => {
     const paginatedTransfers = useMemo(() => filteredTransfers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransfers, currentPage, itemsPerPage]);
 
     const filteredTransactions = useMemo(() => {
-        const list = transactions.filter(t => (t.type.toLowerCase().includes(searchTerm.toLowerCase()) || (t.issue_type || '').toLowerCase().includes(searchTerm.toLowerCase())) && (selectedIssueType ? t.issue_type === selectedIssueType || t.type === selectedIssueType : true));
+        const lower = searchTerm.toLowerCase();
+        const list = transactions.filter(t => {
+            const matchesSearch = !searchTerm || (
+                t.type.toLowerCase().includes(lower) || 
+                (t.issue_type || '').toLowerCase().includes(lower) ||
+                (t.material_name && t.material_name.toLowerCase().includes(lower)) ||
+                ((t as any).material?.name && (t as any).material.name.toLowerCase().includes(lower))
+            );
+            const matchesIssueType = selectedIssueType ? t.issue_type === selectedIssueType || t.type === selectedIssueType : true;
+            return matchesSearch && matchesIssueType;
+        });
         return [...list].sort((a: any, b: any) => {
             const timeA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id || 0);
             const timeB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id || 0);
@@ -513,7 +523,7 @@ const MaterialConsumptionPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input
                                     type="text"
-                                    placeholder={`Search ${activeTab.toLowerCase()}...`}
+                                    placeholder={activeTab === "Transactions" ? "Search by Material or Issue Type..." : `Search ${activeTab.toLowerCase()}...`}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-800"
@@ -560,7 +570,20 @@ const MaterialConsumptionPage = () => {
                                     </>
                                 )}
                                 <button
-                                    onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions}
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setSortOrder("latest");
+                                        setSelectedIssueType("");
+                                        setSelectedMaterialId("");
+                                        setCurrentPage(1);
+                                        if (activeTab === "Usage") {
+                                            fetchInventory();
+                                        } else if (activeTab === "Transfers") {
+                                            fetchTransfers();
+                                        } else {
+                                            fetchTransactions();
+                                        }
+                                    }}
                                     className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
                                     title="Refresh"
                                 >
@@ -618,7 +641,7 @@ const MaterialConsumptionPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                                     <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status === 'PENDING' ? '' as TransferStatus : t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
+                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status === 'PENDING' ? '' as TransferStatus : t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update</button>
                                                 </td>
                                             </tr>
                                         )) : paginatedTransactions.map((t, idx) => (
@@ -644,7 +667,7 @@ const MaterialConsumptionPage = () => {
 
             {/* Modals */}
             {/* Usage Modal */}
-            <Modal isOpen={isUsageModalOpen} onClose={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
+            <Modal isOpen={isUsageModalOpen} onClose={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsUsageModalOpen(false); setUsageErrors({}); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
                 <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
@@ -740,10 +763,11 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm min-h-[380px]">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="z-[61]">
+                            <div className="z-[62]">
                                 <CustomSelect
                                     label="From Project"
                                     required
+                                    placement="bottom"
                                     value={transferForm.from_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, from_project_id: Number(val) })}
                                     options={[
@@ -760,10 +784,11 @@ const MaterialConsumptionPage = () => {
                                 />
                                 {formNotification?.fields?.includes("From Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div className="z-[60]">
+                            <div className="z-[61]">
                                 <CustomSelect
                                     label="To Project"
                                     required
+                                    placement="bottom"
                                     value={transferForm.to_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, to_project_id: Number(val) })}
                                     options={[
@@ -782,10 +807,11 @@ const MaterialConsumptionPage = () => {
                                 />
                                 {formNotification?.fields?.includes("To Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div className="z-[59]">
+                            <div className="z-[60]">
                                 <CustomSelect
                                     label="Material"
                                     required
+                                    placement="bottom"
                                     value={transferForm.material_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
                                     options={[
@@ -837,7 +863,7 @@ const MaterialConsumptionPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsUpdateTransferOpen(false)}
-                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                            className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -878,7 +904,7 @@ const MaterialConsumptionPage = () => {
                         <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                             <div>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Transfer Record</span>
-                                <span className="text-sm font-bold text-slate-800">#{selectedTransfer?.id}</span>
+                                <span className="text-sm font-bold text-slate-800">{selectedTransfer?.material?.name || (selectedTransfer as any)?.material_name || `#${selectedTransfer?.id}`}</span>
                             </div>
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${selectedTransfer?.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedTransfer?.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : selectedTransfer?.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                                 {selectedTransfer?.status}

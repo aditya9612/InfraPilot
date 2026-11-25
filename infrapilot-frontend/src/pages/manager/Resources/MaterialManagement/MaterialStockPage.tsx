@@ -175,9 +175,13 @@ const MaterialStockPage = () => {
         finally { setIsLoading(false); }
     };
 
-    const fetchAdjustments = async () => {
+    const fetchAdjustments = async (overrideType?: string) => {
         setIsLoading(true);
-        try { const data = await materialService.getLogs({ project_id: projectId, type: logTypeFilter || undefined }); setAdjustments(data); }
+        try {
+            const typeToUse = overrideType !== undefined ? overrideType : logTypeFilter;
+            const data = await materialService.getLogs({ project_id: projectId || undefined, type: typeToUse || undefined });
+            setAdjustments(data);
+        }
         catch (e) { toast.error("Failed to load logs"); }
         finally { setIsLoading(false); }
     };
@@ -212,7 +216,7 @@ const MaterialStockPage = () => {
 
         const totalValue = reportSummary?.total_stock_value !== undefined
             ? Number(reportSummary.total_stock_value)
-            : (valuation.total_value || inventory.reduce((a, b) => a + (b.total_value || (b as any).stock_value || 0), 0));
+            : (valuation.total_value || inventory.reduce((a, b) => a + Number((b as any).stock_value ?? ((Number(b.remaining_stock) || 0) * (Number(b.avg_rate) || 0))), 0));
 
         return {
             totalItems,
@@ -241,7 +245,24 @@ const MaterialStockPage = () => {
     }, [reports, searchTerm, reportAlertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
 
-    const filteredAdjustments = useMemo(() => adjustments.filter(a => a.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [adjustments, searchTerm]);
+    const filteredAdjustments = useMemo(() => {
+        let list = adjustments;
+        if (logTypeFilter) {
+            list = list.filter(a => a.type === logTypeFilter || a.issue_type === logTypeFilter);
+        }
+        if (!searchTerm) return list;
+        const lower = searchTerm.toLowerCase();
+        return list.filter(a => {
+            const matName = (a as any).material_name ||
+                inventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                globalInventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                (a as any).material?.name ||
+                '';
+            const typeStr = `${a.type || ''} ${a.issue_type || ''}`.toLowerCase();
+            const pName = ((a as any).project_name || projectsList.find(p => Number(p.id) === Number(a.project_id))?.project_name || '').toLowerCase();
+            return matName.toLowerCase().includes(lower) || typeStr.includes(lower) || pName.includes(lower);
+        });
+    }, [adjustments, logTypeFilter, searchTerm, inventory, globalInventory, projectsList]);
     const paginatedAdjustments = useMemo(() => filteredAdjustments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredAdjustments, currentPage, itemsPerPage]);
 
     // Actions
@@ -271,14 +292,20 @@ const MaterialStockPage = () => {
         setFormNotification(null);
 
         const missingFields: string[] = [];
+        let errorMsg = 'Please fill all mandatory fields.';
         if (!adjustmentForm.material_id) missingFields.push("Material");
-        if (adjustmentForm.new_stock === undefined || adjustmentForm.new_stock < 0) missingFields.push("New Stock");
+        if (adjustmentForm.new_stock === "" || adjustmentForm.new_stock === undefined) {
+            missingFields.push("New Stock");
+        } else if (Number(adjustmentForm.new_stock) < 0) {
+            missingFields.push("New Stock");
+            errorMsg = 'New stock cannot be negative. Must be greater than or equal to 0.';
+        }
         if (!adjustmentForm.reason?.trim()) missingFields.push("Reason");
 
         if (missingFields.length > 0) {
             setFormNotification({
                 type: 'error',
-                message: 'Please fill all mandatory fields.',
+                message: errorMsg,
                 fields: missingFields
             });
             return;
@@ -516,13 +543,13 @@ const MaterialStockPage = () => {
                                 <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                     <div className="relative flex-1 max-w-md">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                        <input type="text" placeholder="Search inventory..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                        <input type="text" placeholder="Search by Material Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                     </div>
-                                    <button onClick={fetchStock} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                    <button onClick={() => { setSearchTerm(""); setCurrentPage(1); fetchStock(); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100" title="Refresh"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                                 </div>
                                 <div className="flex-1 overflow-auto scrollbar-thin">
                                     <table className="w-full text-left whitespace-nowrap">
-                                        <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                        <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
                                             <tr>
                                                 <th className="px-4 py-4">Name</th>
                                                 <th className="px-4 py-4">Unit</th>
@@ -532,7 +559,7 @@ const MaterialStockPage = () => {
                                                 <th className="px-4 py-4 text-right text-orange-500/70">Used</th>
                                                 <th className="px-4 py-4 text-right text-emerald-500/70">Remaining</th>
                                                 <th className="px-4 py-4 text-right">Avg Rate</th>
-                                                <th className="px-4 py-4 text-right">Value</th>
+                                                <th className="px-4 py-4 text-right">Total Value</th>
                                                 <th className="px-4 py-4 text-right text-emerald-500/70">Pay Given</th>
                                                 <th className="px-4 py-4 text-right text-rose-500/70">Pay Pending</th>
                                                 <th className="px-4 py-4 text-center">Status</th>
@@ -575,7 +602,7 @@ const MaterialStockPage = () => {
                                                     <td className="px-4 py-4 text-sm font-bold text-orange-600 text-right">{(i as any).total_used || i.quantity_used || 0}</td>
                                                     <td className="px-4 py-4 text-sm font-bold text-emerald-600 text-right">{i.remaining_stock || 0}</td>
                                                     <td className="px-4 py-4 text-sm text-slate-600 text-right">{formatINR(i.avg_rate)}</td>
-                                                    <td className="px-4 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((i as any).stock_value || i.total_value)}</td>
+                                                    <td className="px-4 py-4 text-sm font-bold text-slate-800 text-right">{formatINR((i as any).stock_value !== undefined && (i as any).stock_value !== null && Number((i as any).stock_value) > 0 ? Number((i as any).stock_value) : (Number(i.remaining_stock || 0) * Number(i.avg_rate || 0)))}</td>
                                                     <td className="px-4 py-4 text-sm font-bold text-emerald-500 text-right">{formatINR(i.payment_given)}</td>
                                                     <td className="px-4 py-4 text-sm font-bold text-rose-500 text-right">{formatINR(i.payment_pending)}</td>
                                                     <td className="px-4 py-4 text-sm text-center">
@@ -740,12 +767,23 @@ const MaterialStockPage = () => {
                                         <option value="OUT_OF_STOCK">Out of Stock</option>
                                     </select>
                                 </div>
-                                <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setReportAlertFilter("");
+                                        setCurrentPage(1);
+                                        fetchReports();
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
+                                    title="Refresh"
+                                >
+                                    <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-600">Pending Pay</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? (
@@ -765,7 +803,19 @@ const MaterialStockPage = () => {
                                                 </td>
                                             </tr>
                                         ) : paginatedReports.length === 0 ? (
-                                            <tr><td colSpan={7} className="p-8 text-center text-slate-400">No report data found for this project.</td></tr>
+                                            <tr>
+                                                <td colSpan={7} className="p-12 text-center">
+                                                    <div className="flex flex-col items-center justify-center space-y-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                                                            <FileText className="w-6 h-6 stroke-[1.5]" />
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-700">No records found</p>
+                                                        <p className="text-xs text-slate-400">
+                                                            No stock report records match the selected filter criteria.
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         ) : (
                                             paginatedReports.map((r, idx) => (
                                                 <tr key={idx} className="hover:bg-slate-50/50">
@@ -801,10 +851,20 @@ const MaterialStockPage = () => {
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                    <input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by Material Name or Type..."
+                                        value={searchTerm}
+                                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                        className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-800"
+                                    />
                                 </div>
                                 <div className="relative w-48">
-                                    <select value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                                    <select
+                                        value={logTypeFilter}
+                                        onChange={(e) => { setLogTypeFilter(e.target.value); setCurrentPage(1); }}
+                                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer text-slate-700 font-medium"
+                                    >
                                         <option value="">All Types</option>
                                         <option value="PURCHASE">Purchase</option>
                                         <option value="USAGE">Usage</option>
@@ -813,11 +873,22 @@ const MaterialStockPage = () => {
                                         <option value="ADJUSTMENT">Adjustment</option>
                                     </select>
                                 </div>
-                                <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setLogTypeFilter("");
+                                        setCurrentPage(1);
+                                        fetchAdjustments("");
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
+                                    title="Refresh"
+                                >
+                                    <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
                                         <tr>
                                             <th className="px-6 py-4">Date</th>
                                             <th className="px-6 py-4">Project Name</th>
@@ -856,7 +927,21 @@ const MaterialStockPage = () => {
                                                 </tr>
                                             );
                                         })}
-                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                        {!isLoading && paginatedAdjustments.length === 0 && (
+                                            <tr>
+                                                <td colSpan={9} className="p-12 text-center">
+                                                    <div className="flex flex-col items-center justify-center space-y-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                                                            <FileText className="w-6 h-6 stroke-[1.5]" />
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-700">No records found</p>
+                                                        <p className="text-xs text-slate-400">
+                                                            No audit adjustment logs match your search or filter.
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -867,7 +952,7 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Commit Adjustment"}</button></>}>
                 <form id="adjustment-form" onSubmit={handleAdjustmentSubmit} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
@@ -924,16 +1009,33 @@ const MaterialStockPage = () => {
                             <div className="bg-slate-50/80 p-4 rounded-xl border-2 border-slate-200 focus-within:border-amber-500 focus-within:bg-amber-50/10 transition-all">
                                 <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
                                     <span>New Stock (Physical Count) <span className="text-rose-500">*</span></span>
-                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required</span>
+                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required (&ge; 0)</span>
                                 </label>
                                 <input
                                     type="number"
+                                    min="0"
+                                    step="any"
                                     required
-                                    value={adjustmentForm.new_stock || ""}
-                                    onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: Number(e.target.value) })}
-                                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs"
-                                    placeholder="e.g. 500"
+                                    value={adjustmentForm.new_stock !== undefined ? adjustmentForm.new_stock : ""}
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val === "") {
+                                            setAdjustmentForm({ ...adjustmentForm, new_stock: "" });
+                                            return;
+                                        }
+                                        const num = Number(val);
+                                        if (num < 0) return;
+                                        setAdjustmentForm({ ...adjustmentForm, new_stock: num });
+                                    }}
+                                    className={`w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs ${formNotification?.fields?.includes("New Stock") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                    placeholder="Enter physical count (e.g. 500)"
                                 />
+                                {formNotification?.fields?.includes("New Stock") && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">
+                                        {adjustmentForm.new_stock !== "" && Number(adjustmentForm.new_stock) < 0 ? "Value must be 0 or greater (no negative values)" : "REQUIRED"}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Reason */}

@@ -70,6 +70,8 @@ const MaterialConsumptionPage = () => {
     const [tasksList, setTasksList] = useState<any[]>([]);
     const [boqsList, setBoqsList] = useState<any[]>([]);
     const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
+    const [selectedIssueType, setSelectedIssueType] = useState<string>("");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Pagination & Filtering
     const [currentPage, setCurrentPage] = useState(1);
@@ -228,16 +230,53 @@ const MaterialConsumptionPage = () => {
         if (activeTab === "Usage") { fetchInventory(); fetchTasksAndBoqs(); }
         else if (activeTab === "Transfers") fetchTransfers();
         else if (activeTab === "Transactions") { fetchTransactions(); fetchInventory(); }
-    }, [activeTab, projectId, selectedMaterialId]);
+    }, [activeTab, projectId, selectedMaterialId, selectedIssueType]);
 
     // Derived Data
-    const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
+    const filteredInventory = useMemo(() => {
+        const list = inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.updated_at || a.created_at ? new Date(a.updated_at || a.created_at).getTime() : (Number(a.material_id || a.id) || 0);
+            const timeB = b.updated_at || b.created_at ? new Date(b.updated_at || b.created_at).getTime() : (Number(b.material_id || b.id) || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [inventory, searchTerm, sortOrder]);
     const paginatedInventory = useMemo(() => filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredInventory, currentPage, itemsPerPage]);
 
-    const filteredTransfers = useMemo(() => transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm)), [transfers, searchTerm]);
+    const filteredTransfers = useMemo(() => {
+        const list = transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm));
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id || 0);
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [transfers, searchTerm, sortOrder]);
     const paginatedTransfers = useMemo(() => filteredTransfers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransfers, currentPage, itemsPerPage]);
 
-    const filteredTransactions = useMemo(() => transactions.filter(t => t.type.toLowerCase().includes(searchTerm.toLowerCase()) || t.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [transactions, searchTerm]);
+    const filteredTransactions = useMemo(() => {
+        let list = transactions;
+        if (selectedMaterialId) {
+            const matIdNum = Number(selectedMaterialId);
+            list = list.filter(t => t.material_id === matIdNum || (t as any).material?.id === matIdNum);
+        }
+        if (selectedIssueType) {
+            list = list.filter(t => t.issue_type === selectedIssueType || t.type === selectedIssueType);
+        }
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            list = list.filter(t => 
+                t.type.toLowerCase().includes(lower) || 
+                (t.issue_type || '').toLowerCase().includes(lower) ||
+                (t.material_name && t.material_name.toLowerCase().includes(lower)) ||
+                ((t as any).material?.name && (t as any).material.name.toLowerCase().includes(lower))
+            );
+        }
+        return [...list].sort((a: any, b: any) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id || 0);
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id || 0);
+            return sortOrder === "latest" ? (timeB - timeA) : (timeA - timeB);
+        });
+    }, [transactions, selectedMaterialId, selectedIssueType, searchTerm, sortOrder]);
     const paginatedTransactions = useMemo(() => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransactions, currentPage, itemsPerPage]);
 
     // Unique materials for Transactions filter and Initiate Transfer dropdowns
@@ -499,30 +538,67 @@ const MaterialConsumptionPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input
                                     type="text"
-                                    placeholder={`Search ${activeTab.toLowerCase()}...`}
+                                    placeholder={activeTab === "Transactions" ? "Search by Material or Issue Type..." : `Search ${activeTab.toLowerCase()}...`}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-800"
                                 />
                             </div>
-                            <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                            <div className="flex flex-wrap items-center gap-2.5 shrink-0 ml-auto">
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => {
+                                        setSortOrder(e.target.value as "latest" | "oldest");
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 shadow-sm"
+                                    title="Sort by latest or oldest"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
                                 {activeTab === "Transactions" && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Material:</span>
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Material:</span>
+                                            <select
+                                                value={selectedMaterialId}
+                                                onChange={e => { setSelectedMaterialId(e.target.value); setCurrentPage(1); }}
+                                                className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 shadow-sm max-w-[210px] truncate"
+                                            >
+                                                <option value="">All Materials</option>
+                                                {uniqueMaterials.map(m => (
+                                                    <option key={m.material_id} value={m.material_id} className="truncate">{m.material_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <select
-                                            value={selectedMaterialId}
-                                            onChange={e => setSelectedMaterialId(e.target.value)}
-                                            className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 shadow-sm max-w-[210px] truncate"
+                                            value={selectedIssueType}
+                                            onChange={e => { setSelectedIssueType(e.target.value); setCurrentPage(1); }}
+                                            className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 shadow-sm w-36"
                                         >
-                                            <option value="">All Materials</option>
-                                            {uniqueMaterials.map(m => (
-                                                <option key={m.material_id} value={m.material_id} className="truncate">{m.material_name}</option>
+                                            <option value="">All Issue Types</option>
+                                            {ISSUE_TYPES.map(type => (
+                                                <option key={type} value={type}>{type}</option>
                                             ))}
                                         </select>
-                                    </div>
+                                    </>
                                 )}
                                 <button
-                                    onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions}
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setSortOrder("latest");
+                                        setSelectedIssueType("");
+                                        setSelectedMaterialId("");
+                                        setCurrentPage(1);
+                                        if (activeTab === "Usage") {
+                                            fetchInventory();
+                                        } else if (activeTab === "Transfers") {
+                                            fetchTransfers();
+                                        } else {
+                                            fetchTransactions();
+                                        }
+                                    }}
                                     className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
                                     title="Refresh"
                                 >
@@ -581,7 +657,7 @@ const MaterialConsumptionPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                                     <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
+                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update</button>
                                                 </td>
                                             </tr>
                                         )) : paginatedTransactions.map((t, idx) => (
@@ -711,7 +787,7 @@ const MaterialConsumptionPage = () => {
             </Modal>
 
             {/* Create Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Transfer"}</button></>}>
                 {/* Top-right floating toast */}
                 {formNotification && (
                     <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
@@ -740,10 +816,11 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm min-h-[380px]">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="z-[61]">
+                            <div className="z-[62]">
                                 <CustomSelect
                                     label="From Project"
                                     required
+                                    placement="bottom"
                                     value={transferForm.from_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, from_project_id: Number(val) })}
                                     options={[
@@ -760,10 +837,11 @@ const MaterialConsumptionPage = () => {
                                 />
                                 {formNotification?.fields?.includes("From Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div className="z-[60]">
+                            <div className="z-[61]">
                                 <CustomSelect
                                     label="To Project"
                                     required
+                                    placement="bottom"
                                     value={transferForm.to_project_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, to_project_id: Number(val) })}
                                     options={[
@@ -782,10 +860,11 @@ const MaterialConsumptionPage = () => {
                                 />
                                 {formNotification?.fields?.includes("To Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                             </div>
-                            <div className="z-[59]">
+                            <div className="z-[60]">
                                 <CustomSelect
                                     label="Material"
                                     required
+                                    placement="bottom"
                                     value={transferForm.material_id?.toString() || ""}
                                     onChange={(val) => setTransferForm({ ...transferForm, material_id: Number(val) })}
                                     options={[
@@ -838,7 +917,7 @@ const MaterialConsumptionPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsUpdateTransferOpen(false)}
-                            className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                            className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -890,7 +969,7 @@ const MaterialConsumptionPage = () => {
                         <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                             <div>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Transfer Record</span>
-                                <span className="text-sm font-bold text-slate-800">#{selectedTransfer?.id}</span>
+                                <span className="text-sm font-bold text-slate-800">{selectedTransfer?.material?.name || (selectedTransfer as any)?.material_name || `#${selectedTransfer?.id}`}</span>
                             </div>
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${selectedTransfer?.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedTransfer?.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : selectedTransfer?.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                                 {selectedTransfer?.status}

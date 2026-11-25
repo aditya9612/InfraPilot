@@ -177,9 +177,13 @@ const MaterialStockPage = () => {
         finally { setIsLoading(false); }
     };
 
-    const fetchAdjustments = async () => {
+    const fetchAdjustments = async (overrideType?: string) => {
         setIsLoading(true);
-        try { const data = await materialService.getLogs({ project_id: projectId || undefined, type: logTypeFilter || undefined }); setAdjustments(data); }
+        try {
+            const typeToUse = overrideType !== undefined ? overrideType : logTypeFilter;
+            const data = await materialService.getLogs({ project_id: projectId || undefined, type: typeToUse || undefined });
+            setAdjustments(data);
+        }
         catch (e) { toast.error("Failed to load logs"); }
         finally { setIsLoading(false); }
     };
@@ -214,7 +218,7 @@ const MaterialStockPage = () => {
 
         const totalValue = reportSummary?.total_stock_value !== undefined
             ? Number(reportSummary.total_stock_value)
-            : (valuation.total_value || inventory.reduce((a, b) => a + (b.total_value || (b as any).stock_value || 0), 0));
+            : (valuation.total_value || inventory.reduce((a, b) => a + Number((b as any).stock_value ?? ((Number(b.remaining_stock) || 0) * (Number(b.avg_rate) || 0))), 0));
 
         return {
             totalItems,
@@ -248,7 +252,24 @@ const MaterialStockPage = () => {
     }, [reports, searchTerm, alertFilter]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
 
-    const filteredAdjustments = useMemo(() => adjustments.filter(a => a.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [adjustments, searchTerm]);
+    const filteredAdjustments = useMemo(() => {
+        let list = adjustments;
+        if (logTypeFilter) {
+            list = list.filter(a => a.type === logTypeFilter || a.issue_type === logTypeFilter);
+        }
+        if (!searchTerm) return list;
+        const lower = searchTerm.toLowerCase();
+        return list.filter(a => {
+            const matName = (a as any).material_name ||
+                inventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                globalInventory.find(i => Number(i.material_id) === Number(a.material_id))?.material_name ||
+                (a as any).material?.name ||
+                '';
+            const typeStr = `${a.type || ''} ${a.issue_type || ''}`.toLowerCase();
+            const pName = ((a as any).project_name || projectsList.find(p => Number(p.id) === Number(a.project_id))?.project_name || '').toLowerCase();
+            return matName.toLowerCase().includes(lower) || typeStr.includes(lower) || pName.includes(lower);
+        });
+    }, [adjustments, logTypeFilter, searchTerm, inventory, globalInventory, projectsList]);
     const paginatedAdjustments = useMemo(() => filteredAdjustments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredAdjustments, currentPage, itemsPerPage]);
 
     // Actions
@@ -271,14 +292,20 @@ const MaterialStockPage = () => {
         setFormNotification(null);
 
         const missingFields: string[] = [];
+        let errorMsg = 'Please fill all mandatory fields.';
         if (!adjustmentForm.material_id) missingFields.push("Material");
-        if (adjustmentForm.new_stock === "" || adjustmentForm.new_stock === undefined || Number(adjustmentForm.new_stock) < 0) missingFields.push("New Stock");
+        if (adjustmentForm.new_stock === "" || adjustmentForm.new_stock === undefined) {
+            missingFields.push("New Stock");
+        } else if (Number(adjustmentForm.new_stock) < 0) {
+            missingFields.push("New Stock");
+            errorMsg = 'New stock cannot be negative. Must be greater than or equal to 0.';
+        }
         if (!adjustmentForm.reason?.trim()) missingFields.push("Reason");
 
         if (missingFields.length > 0) {
             setFormNotification({
                 type: 'error',
-                message: 'Please fill all mandatory fields.',
+                message: errorMsg,
                 fields: missingFields
             });
             return;
@@ -511,21 +538,34 @@ const MaterialStockPage = () => {
                                 <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                     <div className="relative flex-1 max-w-md">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                        <input type="text" placeholder="Search inventory..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                        <input type="text" placeholder="Search by Material Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                     </div>
-                                    <button onClick={fetchStock} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                    <button onClick={() => { setSearchTerm(""); setCurrentPage(1); fetchStock(); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100" title="Refresh"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                                 </div>
                                 <div className="flex-1 overflow-auto scrollbar-thin">
                                     <table className="w-full text-left whitespace-nowrap">
-                                        <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-center">Unit</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                        <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
+                                            <tr>
+                                                <th className="px-4 py-4">Name</th>
+                                                <th className="px-4 py-4">Unit</th>
+                                                <th className="px-4 py-4">Supplier</th>
+                                                <th className="px-4 py-4">Project</th>
+                                                <th className="px-4 py-4 text-right text-blue-500/70">Purchased</th>
+                                                <th className="px-4 py-4 text-right text-orange-500/70">Used</th>
+                                                <th className="px-4 py-4 text-right text-emerald-500/70">Remaining</th>
+                                                <th className="px-4 py-4 text-right">Avg Rate</th>
+                                                <th className="px-4 py-4 text-right">Total Value</th>
+                                                <th className="px-4 py-4 text-right text-emerald-500/70">Pay Given</th>
+                                                <th className="px-4 py-4 text-right text-rose-500/70">Pay Pending</th>
+                                                <th className="px-4 py-4 text-center">Status</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {isLoading ? (
-                                                <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr>
+                                                <tr><td colSpan={12} className="p-8 text-center text-slate-400">Loading...</td></tr>
                                             ) : paginatedInventory.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={5} className="p-12 text-center">
+                                                    <td colSpan={12} className="p-12 text-center">
                                                         {(!projectId || projectId === 0) ? (
                                                             <div className="max-w-md mx-auto space-y-3">
                                                                 <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto text-2xl font-bold">
@@ -547,15 +587,45 @@ const MaterialStockPage = () => {
                                                         )}
                                                     </td>
                                                 </tr>
-                                            ) : paginatedInventory.map(i => (
-                                                <tr key={i.material_id} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 text-center uppercase">{(i as any).unit_name || i.unit || '—'}</td>
-                                                    <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
-                                                </tr>
-                                            ))}
+                                            ) : paginatedInventory.map(i => {
+                                                const totalVal = (i as any).stock_value !== undefined && (i as any).stock_value !== null && Number((i as any).stock_value) > 0
+                                                    ? Number((i as any).stock_value)
+                                                    : (Number(i.remaining_stock || 0) * Number(i.avg_rate || 0));
+                                                return (
+                                                    <tr key={i.material_id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-4 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '-'}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-slate-700 max-w-[150px] truncate" title={(i as any).supplier_name || i.supplier_name}>{(i as any).supplier_name || i.supplier_name || '-'}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-slate-700 max-w-[120px] truncate">{projectsList.find(p => Number(p.id) === Number(i.project_id))?.project_name || projectsList.find(p => Number(p.id) === Number(i.project_id))?.name || (i.project_id ? `Project #${i.project_id}` : '-')}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-blue-600 text-right">{(i as any).total_purchased || i.quantity_purchased || 0}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-orange-600 text-right">{(i as any).total_used || i.quantity_used || 0}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-emerald-600 text-right">{i.remaining_stock || 0}</td>
+                                                        <td className="px-4 py-4 text-sm text-slate-600 text-right">{formatINR(i.avg_rate)}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(totalVal)}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-emerald-500 text-right">{formatINR(i.payment_given)}</td>
+                                                        <td className="px-4 py-4 text-sm font-bold text-rose-500 text-right">{formatINR(i.payment_pending)}</td>
+                                                        <td className="px-4 py-4 text-sm text-center">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                {(() => {
+                                                                    const isOutOfStock = String(i.alert_type) === 'OUT_OF_STOCK' || (i.remaining_stock !== undefined && Number(i.remaining_stock) <= 0);
+                                                                    const isLowStock = i.alert_type === 'LOW_STOCK' || (!isOutOfStock && i.remaining_stock !== undefined && Number(i.remaining_stock) <= (i.minimum_stock_level || 10));
+                                                                    const statusLabel = isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK';
+                                                                    const badgeClass = isOutOfStock
+                                                                        ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                                                        : isLowStock
+                                                                            ? 'bg-amber-100 text-amber-600 border border-amber-200'
+                                                                            : 'bg-emerald-100 text-emerald-600 border border-emerald-200';
+                                                                    return (
+                                                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wider ${badgeClass}`}>
+                                                                            {statusLabel}
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -691,14 +761,40 @@ const MaterialStockPage = () => {
                                     <option value="LOW_STOCK">Low Stock</option>
                                     <option value="OUT_OF_STOCK">Out of Stock</option>
                                 </select>
-                                <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setAlertFilter("");
+                                        setCurrentPage(1);
+                                        fetchReports();
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
+                                    title="Refresh"
+                                >
+                                    <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th><th className="px-6 py-4 text-center">Alert</th></tr>
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-600">Pending Pay</th><th className="px-6 py-4 text-center">Alert</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
+                                        {!isLoading && paginatedReports.length === 0 && (
+                                            <tr>
+                                                <td colSpan={7} className="p-12 text-center">
+                                                    <div className="flex flex-col items-center justify-center space-y-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                                                            <FileText className="w-6 h-6 stroke-[1.5]" />
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-700">No records found</p>
+                                                        <p className="text-xs text-slate-400">
+                                                            No stock report records match the selected filter criteria.
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                         {isLoading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
@@ -733,10 +829,20 @@ const MaterialStockPage = () => {
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                    <input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by Material Name or Type..."
+                                        value={searchTerm}
+                                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                        className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-800"
+                                    />
                                 </div>
                                 <div className="relative w-48">
-                                    <select value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                                    <select
+                                        value={logTypeFilter}
+                                        onChange={(e) => { setLogTypeFilter(e.target.value); setCurrentPage(1); }}
+                                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer text-slate-700 font-medium"
+                                    >
                                         <option value="">All Types</option>
                                         <option value="PURCHASE">Purchase</option>
                                         <option value="USAGE">Usage</option>
@@ -745,11 +851,22 @@ const MaterialStockPage = () => {
                                         <option value="ADJUSTMENT">Adjustment</option>
                                     </select>
                                 </div>
-                                <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setLogTypeFilter("");
+                                        setCurrentPage(1);
+                                        fetchAdjustments("");
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm bg-white"
+                                    title="Refresh"
+                                >
+                                    <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                    <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
                                         <tr>
                                             <th className="px-6 py-4">Date</th>
                                             <th className="px-6 py-4">Project Name</th>
@@ -784,7 +901,21 @@ const MaterialStockPage = () => {
                                                 </tr>
                                             );
                                         })}
-                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                        {!isLoading && paginatedAdjustments.length === 0 && (
+                                            <tr>
+                                                <td colSpan={7} className="p-12 text-center">
+                                                    <div className="flex flex-col items-center justify-center space-y-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                                                            <FileText className="w-6 h-6 stroke-[1.5]" />
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-700">No records found</p>
+                                                        <p className="text-xs text-slate-400">
+                                                            No audit adjustment logs match your search or filter.
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -795,7 +926,7 @@ const MaterialStockPage = () => {
             </PageTransition>
 
             {/* Adjustment Modal */}
-            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Audit Adjustment"}</button></>}>
+            <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Physical Audit Adjustment" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="adjustment-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Save Audit Adjustment"}</button></>}>
                 {/* Top-right floating toast */}
                 {formNotification && (
                     <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
@@ -864,17 +995,33 @@ const MaterialStockPage = () => {
                             <div className="bg-slate-50/80 p-4 rounded-xl border-2 border-slate-200 focus-within:border-amber-500 focus-within:bg-amber-50/10 transition-all">
                                 <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
                                     <span>New Stock (Physical Count) <span className="text-rose-500">*</span></span>
-                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required</span>
+                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded">Required (&ge; 0)</span>
                                 </label>
                                 <input
                                     type="number"
+                                    min="0"
+                                    step="any"
                                     required
-                                    value={adjustmentForm.new_stock}
-                                    onChange={e => setAdjustmentForm({ ...adjustmentForm, new_stock: e.target.value === "" ? "" : Number(e.target.value) })}
+                                    value={adjustmentForm.new_stock !== undefined ? adjustmentForm.new_stock : ""}
+                                    onKeyDown={e => { if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault(); }}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val === "") {
+                                            setAdjustmentForm({ ...adjustmentForm, new_stock: "" });
+                                            return;
+                                        }
+                                        const num = Number(val);
+                                        if (num < 0) return;
+                                        setAdjustmentForm({ ...adjustmentForm, new_stock: num });
+                                    }}
                                     className={`w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs ${formNotification?.fields?.includes("New Stock") ? "!border-rose-500 !bg-rose-50" : ""}`}
-                                    placeholder="e.g. 500"
+                                    placeholder="Enter physical count (e.g. 500)"
                                 />
-                                {formNotification?.fields?.includes("New Stock") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                                {formNotification?.fields?.includes("New Stock") && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">
+                                        {adjustmentForm.new_stock !== "" && Number(adjustmentForm.new_stock) < 0 ? "Value must be 0 or greater (no negative values)" : "REQUIRED"}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Reason */}
