@@ -80,7 +80,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                 quantity: data.quantity ?? 1,
                 unit_price: data.unit_price ?? 0,
                 warranty_end_date: data.warranty_end_date ? data.warranty_end_date.split("T")[0] : "",
-                notes: data.notes || "",
+                notes: (!data.notes || data.notes === "null") ? "" : data.notes,
                 boq_item_id: data.boq_item_id || 0,
             });
 
@@ -194,7 +194,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Purchase Type */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Purchase Type <span className="text-rose-500">*</span>
                                     </label>
                                     <select
@@ -213,7 +213,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* Vendor Name */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Vendor Name <span className="text-rose-500">*</span>
                                     </label>
                                     <input
@@ -227,25 +227,11 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                     />
                                 </div>
 
-                                {/* Invoice Number */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                        Invoice Number <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="invoice_number"
-                                        value={formData.invoice_number}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all"
-                                        placeholder="Enter invoice number"
-                                    />
-                                </div>
+                                
 
                                 {/* Quantity */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Quantity <span className="text-rose-500">*</span>
                                     </label>
                                     <input
@@ -261,7 +247,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* Unit Price */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Unit Price <span className="text-rose-500">*</span>
                                     </label>
                                     <input
@@ -278,7 +264,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* Warranty End Date */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Warranty End Date <span className="text-rose-500">*</span>
                                     </label>
                                     <input
@@ -293,7 +279,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* Notes */}
                                 <div className="space-y-2 md:col-span-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Notes
                                     </label>
                                     <textarea
@@ -308,7 +294,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* Project Name (Read Only) */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         Project Name <span className="text-rose-500">*</span>
                                     </label>
                                     <input
@@ -321,7 +307,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
 
                                 {/* BOQ Item ID */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 px-1">
                                         BOQ Item
                                     </label>
                                     <select
@@ -356,7 +342,7 @@ const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
                                     ) : (
                                         <Edit2 className="w-4 h-4" />
                                     )}
-                                    {isSubmitting ? "Updating..." : "Update Purchase"}
+                                    {isSubmitting ? "Saving..." : "Save Changes"}
                                 </button>
                             </div>
                         </form>

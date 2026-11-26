@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import api from "./api";
 
 export const reportService = {
@@ -284,9 +285,36 @@ export const reportService = {
         const url = `/materials/reports/excel`;
         const response = await api.get(url, {
             params: { project_id: projectId },
-            responseType: 'blob'
+            responseType: 'arraybuffer'
         });
-        return response.data;
+        try {
+            const workbook = XLSX.read(response.data, { type: 'array' });
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                if (!sheet) return;
+                for (const cellKey in sheet) {
+                    if (cellKey.startsWith('!')) continue;
+                    const cell = sheet[cellKey];
+                    if (cell && typeof cell.v === 'string') {
+                        const val = cell.v.trim().toUpperCase();
+                        if (val === 'IN_STOCK' || val === 'IN STOCK') {
+                            cell.v = 'In Stock';
+                            if (cell.w) cell.w = 'In Stock';
+                        } else if (val === 'LOW_STOCK' || val === 'LOW STOCK') {
+                            cell.v = 'Low Stock';
+                            if (cell.w) cell.w = 'Low Stock';
+                        } else if (val === 'OUT_OF_STOCK' || val === 'OUT OF STOCK') {
+                            cell.v = 'Out of Stock';
+                            if (cell.w) cell.w = 'Out of Stock';
+                        }
+                    }
+                }
+            });
+            const out = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            return new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        } catch {
+            return new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        }
     },
 
     exportIssueExcel: async (params: any) => {

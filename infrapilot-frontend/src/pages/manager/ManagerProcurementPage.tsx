@@ -49,6 +49,13 @@ const ManagerProcurementPage = () => {
 
     // ── Modal States ──────────────────────────────────────────────
     const [selectedRequest, setSelectedRequest] = useState<SiteRequestResponse | null>(null);
+    const [isEditRequestOpen, setIsEditRequestOpen] = useState(false);
+    const [requestToEdit, setRequestToEdit] = useState<SiteRequestResponse | null>(null);
+    const [editRequestType, setEditRequestType] = useState<string>("Material");
+    const [editRequestDescription, setEditRequestDescription] = useState("");
+    const [editRequestQuantity, setEditRequestQuantity] = useState<number | "">("");
+    const [isDeleteRequestOpen, setIsDeleteRequestOpen] = useState(false);
+    const [requestToDelete, setRequestToDelete] = useState<number | null>(null);
     const [selectedPO, setSelectedPO] = useState<any | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCreatePurchaseModalOpen, setIsCreatePurchaseModalOpen] = useState(false);
@@ -229,6 +236,60 @@ const ManagerProcurementPage = () => {
         }
     };
 
+    const openEditRequest = (item: SiteRequestResponse) => {
+        setRequestToEdit(item);
+        setEditRequestType(item.request_type || "Material");
+        setEditRequestDescription(item.description || "");
+        setEditRequestQuantity(item.quantity || 1);
+        setIsEditRequestOpen(true);
+    };
+
+    const handleSaveEditRequest = async () => {
+        if (!requestToEdit) return;
+        if (!editRequestDescription.trim()) {
+            toast.error("Please enter a description for the request.");
+            return;
+        }
+        if (editRequestQuantity === "" || Number(editRequestQuantity) <= 0) {
+            toast.error("Quantity must be greater than zero.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const updatedData = {
+                request_type: editRequestType,
+                description: editRequestDescription.trim(),
+                quantity: Number(editRequestQuantity),
+            };
+            await siteRequestService.updateRequest(requestToEdit.id, updatedData);
+            setMaterialRequests(prev => prev.map(r => r.id === requestToEdit.id ? { ...r, ...updatedData } : r));
+            toast.success("Site request updated successfully");
+            setIsEditRequestOpen(false);
+            setRequestToEdit(null);
+        } catch {
+            toast.error("Failed to update request");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteRequest = async () => {
+        if (!requestToDelete) return;
+        setIsSubmitting(true);
+        try {
+            await siteRequestService.deleteRequest(requestToDelete);
+            toast.success("Site request deleted successfully");
+            setMaterialRequests(prev => prev.filter(r => r.id !== requestToDelete));
+            setIsDeleteRequestOpen(false);
+            setRequestToDelete(null);
+        } catch {
+            toast.error("Failed to delete request");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleCreateRequest = async () => {
         if (!selectedProjectId) {
             toast.error("Please select a project before creating a request.");
@@ -265,6 +326,7 @@ const ManagerProcurementPage = () => {
             setIsCreatingRequest(false);
         }
     };
+
 
     const activeTabData = useMemo(() => {
         if (activeTab === "material") {
@@ -329,7 +391,7 @@ const ManagerProcurementPage = () => {
                 {/* ── Header ── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Supply Chain Orchestrator</h1>
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Supply Chain Orchestrator</h1>
                         <p className="text-slate-500 text-xs sm:text-sm mt-1">Directing site requisitions and procurement pipelines.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -384,7 +446,7 @@ const ManagerProcurementPage = () => {
                         ].map(s => (
                             <div key={s.title} onClick={() => s.filter && setActiveStatFilter(s.filter)}
                                 className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-100 hover:shadow-md cursor-pointer transition-all group">
-                                <p className="text-[10px] font-bold text-slate-400/80 uppercase tracking-widest mb-2 sm:mb-3 group-hover:text-primary transition-colors">{s.title}</p>
+                                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 sm:mb-3 group-hover:text-primary transition-colors">{s.title}</p>
                                 <p className={`text-2xl sm:text-3xl font-bold mb-1 ${s.accent}`}>{s.value}</p>
                                 <p className="text-[10px] text-slate-400 font-medium">{s.sub}</p>
                             </div>
@@ -449,7 +511,7 @@ const ManagerProcurementPage = () => {
                         <table className="w-full min-w-[900px] text-left">
                             <thead>
                                 {activeTab === "material" ? (
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                    <tr className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                                         <th className="px-6 py-4">Project Name</th>
                                         <th className="px-6 py-4">Request Type</th>
                                         <th className="px-6 py-4">Description</th>
@@ -460,21 +522,23 @@ const ManagerProcurementPage = () => {
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 ) : (
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                        <th className="px-6 py-4">Project & Type</th>
-                                        <th className="px-6 py-4">Asset Name</th>
-                                        <th className="px-6 py-4">Purchase Date</th>
-                                        <th className="px-6 py-4">Vendor & Invoice</th>
-                                        <th className="px-6 py-4">Unit Price</th>
-                                        <th className="px-6 py-4">Total Price</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    <tr className="bg-slate-100 text-slate-800 text-xs font-black uppercase tracking-wider border-b border-slate-200">
+                                        <th className="px-6 py-4 font-bold text-slate-800">Project Name</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Type</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Asset Name</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Purchase Date</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Vendor</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Quantity</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Unit Price</th>
+                                        <th className="px-6 py-4 font-bold text-slate-800">Total Price</th>
+                                        <th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                     </tr>
                                 )}
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={activeTab === "material" ? 8 : 7} className="px-6 py-20 text-center">
+                                        <td colSpan={activeTab === "material" ? 8 : 9} className="px-6 py-20 text-center">
                                             <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing ledger...</p>
                                         </td>
@@ -498,9 +562,30 @@ const ManagerProcurementPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        onClick={() => setSelectedRequest(item)}
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100"
+                                                        title="View Details"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openEditRequest(item)}
+                                                        className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100"
+                                                        title="Edit Request"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setRequestToDelete(item.id); setIsDeleteRequestOpen(true); }}
+                                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100"
+                                                        title="Delete Request"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                     {item.status === "Pending" && (
-                                                        <div className="flex items-center gap-1.5 border-slate-100">
+                                                        <div className="flex items-center gap-1.5 border-l border-slate-200 pl-1.5 ml-1">
                                                             <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
                                                                 className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Approve">
                                                                 <Check className="w-4 h-4" />
@@ -517,12 +602,14 @@ const ManagerProcurementPage = () => {
                                     ) : (
                                         <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase tracking-tighter shadow-sm">
+                                                <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
                                                     {getProjectName(item.project_id)}
                                                 </span>
-                                                <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type}
-                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md uppercase tracking-wider font-mono border border-slate-200">
+                                                    {({ NEW: 'New', USED: 'Used', RENT: 'Rental', SPARE_PART: 'Spare Part' } as Record<string, string>)[item.purchase_type] || item.purchase_type || "—"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-bold text-slate-800 leading-tight">
@@ -539,20 +626,17 @@ const ManagerProcurementPage = () => {
                                                     <span className="text-sm font-bold text-slate-800 leading-tight">
                                                         {item.vendor_name || "N/A"}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold mt-1 line-clamp-1 italic uppercase tracking-tight">
-                                                        INV: {item.invoice_number || "N/A"}
-                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800 tabular-nums">
-                                                        ₹{(item.unit_price || 0).toLocaleString()}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic mt-0.5">
-                                                        {item.quantity || 1} Qty
-                                                    </span>
-                                                </div>
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums">
+                                                    {item.quantity || 1}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums">
+                                                    ₹{(item.unit_price || 0).toLocaleString()}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-bold text-slate-800 tabular-nums">
@@ -582,7 +666,7 @@ const ManagerProcurementPage = () => {
                                     )
                                 )) : (
                                     <tr>
-                                        <td colSpan={activeTab === "material" ? 8 : 7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                        <td colSpan={activeTab === "material" ? 8 : 9} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                             No {activeTab === "material" ? "requisitions" : "purchase orders"} archived for this project.
                                         </td>
                                     </tr>
@@ -626,18 +710,41 @@ const ManagerProcurementPage = () => {
                                                 <span><strong className="text-slate-400 uppercase text-[9px]">Requested By:</strong> {usersMap[item.requested_by] || (item.requested_by ? `User #${item.requested_by}` : "—")}</span>
                                                 <span><strong className="text-slate-400 uppercase text-[9px]">Approved By:</strong> {usersMap[item.approved_by] || (item.approved_by ? `User #${item.approved_by}` : "—")}</span>
                                             </div>
-                                            {item.status === "Pending" && (
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
-                                                        className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-200" title="Approve">
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleReject(item.id)} disabled={isSubmitting}
-                                                        className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-200" title="Reject">
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-50 flex-wrap">
+                                                <button
+                                                    onClick={() => setSelectedRequest(item)}
+                                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+                                                    title="View"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" /> View
+                                                </button>
+                                                <button
+                                                    onClick={() => openEditRequest(item)}
+                                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200"
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => { setRequestToDelete(item.id); setIsDeleteRequestOpen(true); }}
+                                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                                </button>
+                                                {item.status === "Pending" && (
+                                                    <div className="flex items-center gap-1 pl-1">
+                                                        <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
+                                                            className="p-1.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all border border-emerald-200" title="Approve">
+                                                            <Check className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button onClick={() => handleReject(item.id)} disabled={isSubmitting}
+                                                            className="p-1.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-all border border-rose-200" title="Reject">
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ) : (
@@ -680,9 +787,8 @@ const ManagerProcurementPage = () => {
                                                 <span className="font-bold text-slate-800 tabular-nums">₹{((item.total_amount !== undefined && item.total_amount !== null) ? item.total_amount : ((item.quantity || 1) * (item.unit_price || 0))).toLocaleString()}</span>
                                             </div>
                                             <div className="col-span-2 pt-1 border-t border-slate-50">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor / Invoice</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor</span>
                                                 <span className="font-bold text-slate-800 break-words">{item.vendor_name || "N/A"}</span>
-                                                <span className="text-[10px] text-slate-400 block">INV: {item.invoice_number || "N/A"}</span>
                                             </div>
                                         </div>
 
@@ -755,33 +861,108 @@ const ManagerProcurementPage = () => {
             </PageTransition>
 
             {/* ── Detail Modals ── */}
-            <Modal isOpen={!!selectedRequest} onClose={() => setSelectedRequest(null)} title="Requisition Artifact Analysis" maxWidth="max-w-xl">
+            <Modal isOpen={!!selectedRequest} onClose={() => setSelectedRequest(null)} title="Requisition Details" maxWidth="max-w-xl" footer={<button type="button" onClick={() => setSelectedRequest(null)} className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">Close</button>}>
                 {selectedRequest && (
                     <div className="p-6 space-y-6">
-                        <div className={`rounded-2xl p-8 text-white shadow-lg ${selectedRequest.status === 'Approved' ? 'bg-emerald-600' : selectedRequest.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
-                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Procurement Record</p>
-                            <h3 className="text-xl font-bold mb-4">{selectedRequest.request_type}</h3>
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className={`rounded-2xl p-6 text-white shadow-lg ${selectedRequest.status === 'Approved' ? 'bg-emerald-600' : selectedRequest.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Procurement Record</p>
+                            <h3 className="text-xl font-bold mb-3">{selectedRequest.request_type} Request</h3>
+                            <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                                    <p className="text-[9px] font-bold uppercase opacity-60">Status</p>
-                                    <p className="font-bold text-lg">{selectedRequest.status.toUpperCase()}</p>
+                                    <p className="text-[9px] font-bold uppercase opacity-70">Status</p>
+                                    <p className="font-bold text-base">{selectedRequest.status.toUpperCase()}</p>
                                 </div>
                                 <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                                    <p className="text-[9px] font-bold uppercase opacity-60">Quantum</p>
-                                    <p className="font-bold text-lg">{selectedRequest.quantity} UNITS</p>
+                                    <p className="text-[9px] font-bold uppercase opacity-70">Quantity</p>
+                                    <p className="font-bold text-base">{selectedRequest.quantity} UNITS</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Narrative</p>
-                                <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-slate-700 leading-relaxed italic border border-slate-100">
-                                    "{selectedRequest.description}"
-                                </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Project</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{getProjectName(selectedRequest.project_id)}</p>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Requested By</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{usersMap[selectedRequest.requested_by] || (selectedRequest.requested_by ? `User #${selectedRequest.requested_by}` : "—")}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description / Narrative</p>
+                            <div className="p-4 bg-slate-50 rounded-xl text-sm font-semibold text-slate-700 leading-relaxed border border-slate-100">
+                                {selectedRequest.description || "—"}
                             </div>
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Edit Site Request Modal */}
+            <Modal isOpen={isEditRequestOpen} onClose={() => { setIsEditRequestOpen(false); setRequestToEdit(null); }} title="Edit Site Request" maxWidth="max-w-lg">
+                <div className="p-6 space-y-6">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Project</p>
+                        <p className="text-sm font-bold text-slate-900 mt-1">{getProjectName(requestToEdit?.project_id)}</p>
+                    </div>
+
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Request Type <span className="text-rose-500">*</span></label>
+                            <select value={editRequestType} onChange={e => setEditRequestType(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                <option value="Material">Material</option>
+                                <option value="Labour">Labour</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Work">Work</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Description <span className="text-rose-500">*</span></label>
+                            <textarea required value={editRequestDescription} onChange={e => setEditRequestDescription(e.target.value)} rows={4}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Describe the request" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Quantity <span className="text-rose-500">*</span></label>
+                            <input type="number" min={1} value={editRequestQuantity} onChange={e => setEditRequestQuantity(e.target.value === "" ? "" : Number(e.target.value))}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                        <button type="button" onClick={() => { setIsEditRequestOpen(false); setRequestToEdit(null); }}
+                            className="rounded-2xl border border-slate-200 bg-slate-100 hover:bg-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition-all">
+                            Cancel
+                        </button>
+                        <button type="button" onClick={handleSaveEditRequest} disabled={isSubmitting}
+                            className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50">
+                            {isSubmitting ? "Saving..." : "Update Request"}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Delete Site Request Modal */}
+            <Modal isOpen={isDeleteRequestOpen} onClose={() => { setIsDeleteRequestOpen(false); setRequestToDelete(null); }} title="Confirm Deletion" maxWidth="max-w-md">
+                <div className="p-6 space-y-4">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                        <Trash2 className="w-6 h-6" />
+                    </div>
+                    <p className="text-center text-sm font-bold text-slate-800">Are you sure you want to delete this site request?</p>
+                    <p className="text-center text-xs text-slate-500">This action cannot be undone.</p>
+                    <div className="flex justify-center gap-3 pt-4">
+                        <button type="button" onClick={() => { setIsDeleteRequestOpen(false); setRequestToDelete(null); }}
+                            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition-all">
+                            Cancel
+                        </button>
+                        <button type="button" onClick={handleDeleteRequest} disabled={isSubmitting}
+                            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50">
+                            {isSubmitting ? "Deleting..." : "Delete"}
+                        </button>
+                    </div>
+                </div>
             </Modal>
 
             <Modal isOpen={!!selectedPO} onClose={() => setSelectedPO(null)} title="Purchase Order Analysis" maxWidth="max-w-xl">
@@ -827,7 +1008,7 @@ const ManagerProcurementPage = () => {
 
                     <div className="grid gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type <span className="text-rose-500">*</span></label>
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Request Type <span className="text-rose-500">*</span></label>
                             <select value={requestType} onChange={e => setRequestType(e.target.value)}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
                                 <option value="Material">Material</option>
@@ -838,13 +1019,13 @@ const ManagerProcurementPage = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Description <span className="text-rose-500">*</span></label>
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Description <span className="text-rose-500">*</span></label>
                             <textarea required value={requestDescription} onChange={e => setRequestDescription(e.target.value)} rows={4}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Describe the request" />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity <span className="text-rose-500">*</span></label>
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">Quantity <span className="text-rose-500">*</span></label>
                             <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(e.target.value === "" ? "" : Number(e.target.value))}
                                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>

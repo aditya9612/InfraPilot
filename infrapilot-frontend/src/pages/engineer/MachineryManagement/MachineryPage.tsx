@@ -143,6 +143,7 @@ const MachineryPage = () => {
 
     // ─── Data States ──────────────────────────────────────────────────
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+    const [usageMap, setUsageMap] = useState<Record<number, { totalHours: number; latestHours: number; fuelUsed?: number }>>({});
     const [unallocatedEquipmentList, setUnallocatedEquipmentList] = useState<Equipment[]>([]);
 
     const modalEquipmentList = useMemo(() => {
@@ -182,7 +183,7 @@ const MachineryPage = () => {
 
     // ─── UI / Form States ──────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState("");
-    const [showDeleted, setShowDeleted] = useState(false);
+    const [showDeleted] = useState(false);
     const [conditionFilter, setConditionFilter] = useState("All");
     const [allocationFilter, setAllocationFilter] = useState<'All' | 'Allocated' | 'Unallocated'>("All");
 
@@ -224,6 +225,32 @@ const MachineryPage = () => {
     const [appliedPurchaseListType, setAppliedPurchaseListType] = useState("");
     const [appliedPurchaseListDateFrom, setAppliedPurchaseListDateFrom] = useState("");
     const [appliedPurchaseListDateTo, setAppliedPurchaseListDateTo] = useState("");
+
+    const formatISTDateTime = (dateStr?: string) => {
+        if (!dateStr) return { date: '—', time: '' };
+        try {
+            let str = String(dateStr).trim();
+            if (!str.endsWith('Z') && !str.includes('+') && !/[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$/.test(str)) {
+                str = str.includes('T') ? `${str}Z` : `${str.replace(' ', 'T')}Z`;
+            }
+            const dateObj = new Date(str);
+            if (isNaN(dateObj.getTime())) return { date: dateStr, time: '' };
+
+            const date = dateObj.toLocaleDateString(undefined, {
+                timeZone: 'Asia/Kolkata'
+            });
+            const time = dateObj.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+            });
+            return { date, time };
+        } catch {
+            return { date: dateStr, time: '' };
+        }
+    };
 
     // Selected items for modals
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
@@ -455,20 +482,7 @@ const MachineryPage = () => {
         );
     };
 
-    const renderFloatingToast = () => {
-        if (!formNotification) return null;
-        return (
-            <div style={{ position: 'fixed', top: '18px', right: '18px', zIndex: 99999, minWidth: '260px', maxWidth: '380px', animation: 'slideDownIn 0.32s cubic-bezier(0.16,1,0.3,1)' }}>
-                <style>{`@keyframes slideDownIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                <div className="bg-white rounded-2xl flex items-start gap-3 px-4 py-3.5" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1px solid #f1f5f9' }}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${formNotification.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}><span className="text-white text-xs font-bold">{formNotification.type === 'error' ? '×' : '✓'}</span></div>
-                    <p className="text-sm font-semibold text-slate-800 flex-1 leading-snug">{formNotification.type === 'error' ? (formNotification.fields ? `Mandatory fields required: ${formNotification.fields.join(', ')}` : formNotification.message) : formNotification.message}</p>
-                    <button type="button" onClick={() => setFormNotification(null)} className="text-slate-300 hover:text-slate-500 text-base leading-none ml-1 mt-0.5">×</button>
-                </div>
-            </div>
-        );
-    };
-
+    const [viewEquipmentUsage, setViewEquipmentUsage] = useState<{ working_hours?: number; fuel_used?: number } | null>(null);
     // View and Delete Purchase Modals
     const [isViewPurchaseModalOpen, setIsViewPurchaseModalOpen] = useState(false);
     const [viewPurchaseData, setViewPurchaseData] = useState<any>(null);
@@ -490,18 +504,29 @@ const MachineryPage = () => {
     const [formData, setFormData] = useState<any>({});
     const [projects, setProjects] = useState<any[]>([]);
 
-    useEffect(() => {
-        const fetchProjects = async () => {
-            try {
-                const res = await projectService.getProjects(100, 0);
-                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-                setProjects(projectsList);
-            } catch (err) {
-                console.error("Failed to fetch projects", err);
-            }
-        };
-        fetchProjects();
+    const fetchProjects = useCallback(async () => {
+        try {
+            const res = await projectService.getProjects(100, 0);
+            const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+            setProjects(projectsList);
+        } catch (err) {
+            console.error("Failed to fetch projects", err);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchProjects();
+    }, [fetchProjects]);
+
+    const [isRefreshingEq, setIsRefreshingEq] = useState(false);
+
+    const getMinNextMaintenanceDate = (mDateStr?: string) => {
+        const base = mDateStr || new Date().toISOString().split('T')[0];
+        const d = new Date(base);
+        if (isNaN(d.getTime())) return '';
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    };
 
     // ─── Data Fetching ─────────────────────────────────────────────────
 
@@ -543,8 +568,38 @@ const MachineryPage = () => {
                 setCostReport(cost);
             }
             else if (activeTab === "Machinery & Equipment List") {
-                const res = await equipmentService.listEquipment(eqParams);
-                setEquipmentList(res.items || []);
+                const [res, usageLogs, usageReports] = await Promise.all([
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.listUsage(undefined, pIdObj).catch(() => []),
+                    equipmentService.getUsageReport(pIdObj).catch(() => [])
+                ]);
+                const eqItems = res.items || [];
+                setEquipmentList(eqItems);
+
+                const uMap: Record<number, { totalHours: number; latestHours: number; fuelUsed?: number }> = {};
+                (usageReports || []).forEach((r: any) => {
+                    const eqId = Number(r.equipment_id);
+                    if (eqId) {
+                        uMap[eqId] = {
+                            totalHours: Number(r.total_hours) || 0,
+                            latestHours: Number(r.total_hours) || 0,
+                            fuelUsed: Number(r.total_fuel) || 0
+                        };
+                    }
+                });
+                (usageLogs || []).forEach((u: any) => {
+                    const eqId = Number(u.equipment_id);
+                    if (eqId) {
+                        const existing = uMap[eqId] || { totalHours: 0, latestHours: 0 };
+                        const wHours = Number(u.working_hours) || 0;
+                        uMap[eqId] = {
+                            totalHours: existing.totalHours > 0 ? existing.totalHours : wHours,
+                            latestHours: wHours || existing.latestHours,
+                            fuelUsed: u.fuel_used !== undefined ? Number(u.fuel_used) : existing.fuelUsed
+                        };
+                    }
+                });
+                setUsageMap(uMap);
             }
             else if (activeTab === "Usage") {
                 const [res, report, boqs] = await Promise.all([
@@ -692,6 +747,22 @@ const MachineryPage = () => {
 
 
     // ─── Handlers ─────────────────────────────────────────────────────
+
+    const handleRefreshEquipmentList = async () => {
+        setIsRefreshingEq(true);
+        try {
+            await Promise.all([
+                fetchTabData(),
+                fetchProjects()
+            ]);
+            toast.success("Equipment records reloaded successfully");
+        } catch (error) {
+            console.error("Refresh error:", error);
+            toast.error("Failed to reload equipment records");
+        } finally {
+            setIsRefreshingEq(false);
+        }
+    };
 
     const handleSaveEquipmentModal = async (submittedData: any) => {
         try {
@@ -978,6 +1049,19 @@ const MachineryPage = () => {
             setFormNotification({ type: 'error', message: missingFields.length === 0 ? "Please fill all mandatory fields" : undefined, fields: missingFields.length > 0 ? missingFields : undefined });
             return;
         }
+
+        const today = new Date().toISOString().split('T')[0];
+        const enteredDate = formData.usage_date || today;
+        if (enteredDate > today) {
+            setFormNotification({
+                type: 'error',
+                message: 'Usage date cannot be in the future',
+                fields: ['USAGE DATE']
+            });
+            toast.error('Usage date cannot be in the future');
+            return;
+        }
+
         setFormNotification(null);
         try {
             if (formData.usage_id) {
@@ -996,6 +1080,17 @@ const MachineryPage = () => {
             }
             toast.success(formData.usage_id ? "Usage updated successfully!" : "Usage logged successfully!");
             setIsUsageModalOpen(false);
+            if (formData.equipment_id && formData.working_hours) {
+                const wHours = Number(formData.working_hours);
+                setUsageMap(prev => ({
+                    ...prev,
+                    [formData.equipment_id]: {
+                        totalHours: (prev[formData.equipment_id]?.totalHours || 0) + wHours,
+                        latestHours: wHours,
+                        fuelUsed: Number(formData.fuel_used) || 0
+                    }
+                }));
+            }
             if (activeTab === "Usage") {
                 const report = await equipmentService.getUsageReport({ project_id: selectedProjectId || undefined });
                 setUsageReport(report);
@@ -1007,7 +1102,34 @@ const MachineryPage = () => {
                 }
             }
         } catch (error: any) {
-            setFormNotification({ type: 'error', message: error.message || (formData.usage_id ? "Failed to update usage" : "Failed to log usage") });
+            let errorMsg = formData.usage_id ? "Failed to update usage" : "Failed to log usage";
+            let fields: string[] = [];
+
+            const detail = error.response?.data?.detail;
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+                if (detail.toLowerCase().includes('date') || detail.toLowerCase().includes('usage already exists')) {
+                    fields = ['USAGE DATE'];
+                }
+            } else if (Array.isArray(detail) && detail.length > 0) {
+                const firstErr = detail[0];
+                let rawMsg = firstErr.msg || JSON.stringify(firstErr);
+                if (rawMsg.startsWith("Value error, ")) {
+                    rawMsg = rawMsg.replace("Value error, ", "");
+                }
+                errorMsg = rawMsg;
+                if (firstErr.loc && Array.isArray(firstErr.loc)) {
+                    const lastLoc = String(firstErr.loc[firstErr.loc.length - 1]).toUpperCase();
+                    fields = [lastLoc.replace('_', ' ')];
+                }
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response?.data?.message;
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+
+            setFormNotification({ type: 'error', message: errorMsg, fields: fields.length > 0 ? fields : undefined });
+            toast.error(errorMsg);
         }
     };
 
@@ -1105,11 +1227,33 @@ const MachineryPage = () => {
 
         const today = new Date().toISOString().split('T')[0];
 
+        if (!formData.description || formData.description.trim().length < 3) {
+            setFormNotification({
+                type: 'error',
+                message: 'Description must be at least 3 characters',
+                fields: ['DESCRIPTION']
+            });
+            toast.error('Description must be at least 3 characters');
+            return;
+        }
+
         const sanitizedFormData = {
             ...formData,
             maintenance_date: normalizeDate(formData.maintenance_date || today),
             next_maintenance_date: normalizeDate(formData.next_maintenance_date),
         };
+
+        if (sanitizedFormData.maintenance_date && sanitizedFormData.next_maintenance_date) {
+            if (sanitizedFormData.next_maintenance_date <= sanitizedFormData.maintenance_date) {
+                setFormNotification({
+                    type: 'error',
+                    message: 'Next maintenance date must be after maintenance date.',
+                    fields: ['NEXT MAINTENANCE DATE']
+                });
+                toast.error('Next maintenance date must be after maintenance date.');
+                return;
+            }
+        }
 
         try {
             if (sanitizedFormData.id || sanitizedFormData.maintenance_id) {
@@ -1132,7 +1276,31 @@ const MachineryPage = () => {
                 }
             }
         } catch (error: any) {
-            setFormNotification({ type: 'error', message: error.message || "Failed to save maintenance" });
+            let errorMsg = "Failed to save maintenance";
+            let fields: string[] = [];
+            const detail = error.response?.data?.detail;
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+                if (detail.toLowerCase().includes('description')) fields = ['DESCRIPTION'];
+                if (detail.toLowerCase().includes('date')) fields = ['NEXT MAINTENANCE DATE'];
+            } else if (Array.isArray(detail) && detail.length > 0) {
+                const firstErr = detail[0];
+                let rawMsg = firstErr.msg || JSON.stringify(firstErr);
+                if (rawMsg.includes("at least 3 characters") || rawMsg.includes("string_too_short")) {
+                    rawMsg = "Description must be at least 3 characters";
+                } else if (rawMsg.startsWith("Value error, ")) {
+                    rawMsg = rawMsg.replace("Value error, ", "");
+                }
+                errorMsg = rawMsg;
+                if (firstErr.loc && Array.isArray(firstErr.loc)) {
+                    const lastLoc = String(firstErr.loc[firstErr.loc.length - 1]).toUpperCase();
+                    fields = [lastLoc.replace('_', ' ')];
+                }
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+            setFormNotification({ type: 'error', message: errorMsg, fields: fields.length > 0 ? fields : undefined });
+            toast.error(errorMsg);
         }
     };
 
@@ -1275,6 +1443,8 @@ const MachineryPage = () => {
     const openViewModal = async (eq: Equipment) => {
         setSelectedEquipment(eq);
         setIsViewModalOpen(true);
+        const cached = usageMap[eq.id];
+        setViewEquipmentUsage(cached ? { working_hours: cached.latestHours, fuel_used: cached.fuelUsed } : null);
         try {
             const fetchedEq = await equipmentService.getEquipment(eq.id);
             setSelectedEquipment(fetchedEq as unknown as Equipment);
@@ -1286,6 +1456,31 @@ const MachineryPage = () => {
             setAllocationStatus(alloc);
         } catch (e) {
             setAllocationStatus({ allocated: false, project_id: null });
+        }
+        try {
+            const logs = await equipmentService.listUsage(eq.id);
+            if (Array.isArray(logs) && logs.length > 0) {
+                const sorted = [...logs].sort((a: any, b: any) => {
+                    const dateA = new Date(a.usage_date || a.created_at || 0).getTime();
+                    const dateB = new Date(b.usage_date || b.created_at || 0).getTime();
+                    return dateB - dateA;
+                });
+                const latest = sorted[0];
+                setViewEquipmentUsage({
+                    working_hours: latest.working_hours,
+                    fuel_used: latest.fuel_used
+                });
+                setUsageMap(prev => ({
+                    ...prev,
+                    [eq.id]: {
+                        totalHours: prev[eq.id]?.totalHours || latest.working_hours || 0,
+                        latestHours: latest.working_hours || 0,
+                        fuelUsed: latest.fuel_used
+                    }
+                }));
+            }
+        } catch (e) {
+            console.error("Failed to fetch equipment usage logs", e);
         }
     };
 
@@ -1467,8 +1662,15 @@ const MachineryPage = () => {
 
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => setRefreshTrigger(prev => prev + 1)} className="px-5 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all shrink-0">
-                            <RotateCcw className="w-4 h-4" /> Refresh
+                        <button
+                            type="button"
+                            onClick={handleRefreshEquipmentList}
+                            disabled={isRefreshingEq}
+                            className="px-5 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+                            title="Reload latest records while preserving filters"
+                        >
+                            <RotateCcw className={`w-4 h-4 ${isRefreshingEq ? 'animate-spin text-primary' : ''}`} />
+                            {isRefreshingEq ? "Refreshing..." : "Refresh"}
                         </button>
                         <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
                             Add Equipment
@@ -1478,16 +1680,16 @@ const MachineryPage = () => {
 
                 <div className="flex-1 overflow-auto">
                     <table className="w-full text-left min-w-[1000px]">
-                        <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                        <thead className="bg-slate-800 text-white sticky top-0 z-10 text-[11px] uppercase font-bold tracking-wider shadow-sm">
                             <tr>
-                                <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
-                                <th className="px-6 py-4 border-b border-slate-200 min-w-[170px]">Project Name</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Ownership</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Operator</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Usage</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Condition</th>
-                                <th className="px-6 py-4 border-b border-slate-200">Maintenance</th>
-                                <th className="px-6 py-4 border-b border-slate-200 text-right">Actions</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Equipment</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold min-w-[170px]">Project Name</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Ownership</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Operator</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Usage</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Condition</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Maintenance</th>
+                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1524,8 +1726,22 @@ const MachineryPage = () => {
                                         })()}
                                     </td>
                                     <td className="px-6 py-3 text-sm text-slate-900">{item.operator_name}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-900">
-                                        N/A
+                                    <td className="px-6 py-3 text-sm font-semibold text-slate-800">
+                                        {(() => {
+                                            const directUsage = (item as any).working_hours ?? (item as any).total_hours ?? (item as any).usage;
+                                            if (directUsage !== undefined && directUsage !== null && directUsage !== '' && directUsage !== 'N/A') {
+                                                const formatted = typeof directUsage === 'number' ? `${directUsage} hrs` : (String(directUsage).includes('hr') ? directUsage : `${directUsage} hrs`);
+                                                return formatted;
+                                            }
+                                            const mapped = usageMap[item.id];
+                                            if (mapped) {
+                                                const hrs = mapped.latestHours || mapped.totalHours;
+                                                if (hrs !== undefined && hrs !== null && hrs > 0) {
+                                                    return `${hrs} hrs`;
+                                                }
+                                            }
+                                            return '—';
+                                        })()}
                                     </td>
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
@@ -2583,8 +2799,24 @@ const MachineryPage = () => {
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
                                 {selectedEquipment.project_id ? (projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.name || `PRJ-${selectedEquipment.project_id}`) : 'Not Allocated'}
                             </p></div>
-                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">N/A</p></div>
-                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">N/A</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">
+                                {viewEquipmentUsage?.working_hours !== undefined && viewEquipmentUsage?.working_hours !== null
+                                    ? `${viewEquipmentUsage.working_hours} hrs`
+                                    : usageMap[selectedEquipment.id]?.latestHours !== undefined && usageMap[selectedEquipment.id]?.latestHours !== null
+                                        ? `${usageMap[selectedEquipment.id].latestHours} hrs`
+                                        : (selectedEquipment as any).working_hours !== undefined && (selectedEquipment as any).working_hours !== null
+                                            ? `${(selectedEquipment as any).working_hours} hrs`
+                                            : 'N/A'}
+                            </p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">
+                                {viewEquipmentUsage?.fuel_used !== undefined && viewEquipmentUsage?.fuel_used !== null
+                                    ? `${viewEquipmentUsage.fuel_used} L`
+                                    : usageMap[selectedEquipment.id]?.fuelUsed !== undefined && usageMap[selectedEquipment.id]?.fuelUsed !== null
+                                        ? `${usageMap[selectedEquipment.id].fuelUsed} L`
+                                        : (selectedEquipment as any).fuel_used !== undefined && (selectedEquipment as any).fuel_used !== null
+                                            ? `${(selectedEquipment as any).fuel_used} L`
+                                            : 'N/A'}
+                            </p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()} <span className="text-xs text-slate-500 font-normal">{selectedEquipment.cost_unit === 'PER_DAY' ? '/ Day' : selectedEquipment.cost_unit === 'PER_MONTH' ? '/ Month' : ''}</span></p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : 'N/A'}</p></div>
@@ -2678,7 +2910,7 @@ const MachineryPage = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Usage Date <span className="text-red-600">*</span></label>
-                        <input type="date" required value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                        <input type="date" required max={new Date().toISOString().split('T')[0]} value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
@@ -2713,13 +2945,49 @@ const MachineryPage = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">DESCRIPTION <span className="text-red-600">*</span></label>
-                        <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') ? "!border-rose-500 !bg-rose-50" : ""}`} />
-                        {formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                        <input
+                            type="text"
+                            required
+                            minLength={3}
+                            value={formData.description || ''}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${(formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') || (formData.description !== undefined && formData.description !== '' && formData.description.trim().length < 3)) ? "!border-rose-500 !bg-rose-50" : ""}`}
+                            placeholder="Enter maintenance description..."
+                        />
+                        {(formData.description !== undefined && formData.description !== '' && formData.description.trim().length < 3) ? (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Description must be at least 3 characters</p>
+                        ) : formNotification?.fields?.some(f => f.toUpperCase() === 'DESCRIPTION') ? (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">
+                                {formNotification.message && formNotification.message.includes('3 characters') ? 'Description must be at least 3 characters' : 'REQUIRED'}
+                            </p>
+                        ) : null}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">MAINTENANCE DATE <span className="text-red-600">*</span></label>
-                            <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} onFocus={(e) => { if (!formData.maintenance_date) setFormData((prev: any) => ({ ...prev, maintenance_date: e.target.value })); }} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                            <input
+                                type="date"
+                                required
+                                value={formData.maintenance_date || new Date().toISOString().split('T')[0]}
+                                onChange={(e) => {
+                                    const newDate = e.target.value;
+                                    const minNext = getMinNextMaintenanceDate(newDate);
+                                    setFormData((prev: any) => ({
+                                        ...prev,
+                                        maintenance_date: newDate,
+                                        next_maintenance_date: (prev.next_maintenance_date && prev.next_maintenance_date <= newDate)
+                                            ? minNext
+                                            : prev.next_maintenance_date
+                                    }));
+                                }}
+                                onFocus={(e) => {
+                                    if (!formData.maintenance_date) {
+                                        const curVal = e.target.value;
+                                        setFormData((prev: any) => ({ ...prev, maintenance_date: curVal }));
+                                    }
+                                }}
+                                className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`}
+                            />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'MAINTENANCE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
                         <div>
@@ -2729,7 +2997,14 @@ const MachineryPage = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">NEXT MAINTENANCE DATE <span className="text-red-600">*</span></label>
-                        <input type="date" required value={formData.next_maintenance_date || ''} onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })} className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'NEXT MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
+                        <input
+                            type="date"
+                            required
+                            min={getMinNextMaintenanceDate(formData.maintenance_date || new Date().toISOString().split('T')[0])}
+                            value={formData.next_maintenance_date || ''}
+                            onChange={(e) => setFormData({ ...formData, next_maintenance_date: e.target.value })}
+                            className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${formNotification?.fields?.some(f => f.toUpperCase() === 'NEXT MAINTENANCE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`}
+                        />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'NEXT MAINTENANCE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
                     <div>
@@ -2981,6 +3256,7 @@ const MachineryPage = () => {
                                     return <span className="text-xs text-slate-400">Action recorded</span>;
                                 };
 
+                                const { date: istDate, time: istTime } = formatISTDateTime(log.created_at);
                                 return (
                                     <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
                                         <div className="shrink-0">
@@ -2990,8 +3266,8 @@ const MachineryPage = () => {
                                             {renderDetails()}
                                         </div>
                                         <div className="shrink-0 text-right">
-                                            <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleDateString()}</p>
-                                            <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</p>
+                                            <p className="text-[10px] text-slate-400">{istDate}</p>
+                                            <p className="text-[10px] text-slate-400">{istTime}</p>
                                         </div>
                                     </div>
                                 );

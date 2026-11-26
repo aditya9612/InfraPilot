@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import api from "./api";
 import type {
   Material,
@@ -271,7 +272,7 @@ export const materialService = {
 
           response = await api.get(endpoint, {
             params,
-            responseType: 'blob'
+            responseType: 'arraybuffer'
           });
           break;
         } catch (e: any) {
@@ -279,7 +280,39 @@ export const materialService = {
         }
       }
       if (response && response.status === 200) {
-        const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        let finalBuffer = response.data;
+        try {
+          const workbook = XLSX.read(response.data, { type: 'array' });
+          workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) return;
+            for (const cellKey in sheet) {
+              if (cellKey.startsWith('!')) continue;
+              const cell = sheet[cellKey];
+              if (cell && typeof cell.v === 'string') {
+                const val = cell.v.trim().toUpperCase();
+                if (val === 'IN_STOCK' || val === 'IN STOCK') {
+                  cell.v = 'In Stock';
+                  if (cell.w) cell.w = 'In Stock';
+                } else if (val === 'LOW_STOCK' || val === 'LOW STOCK') {
+                  cell.v = 'Low Stock';
+                  if (cell.w) cell.w = 'Low Stock';
+                } else if (val === 'OUT_OF_STOCK' || val === 'OUT OF STOCK') {
+                  cell.v = 'Out of Stock';
+                  if (cell.w) cell.w = 'Out of Stock';
+                } else if (val === 'NEAR_LOW') {
+                  cell.v = 'Near Low';
+                  if (cell.w) cell.w = 'Near Low';
+                }
+              }
+            }
+          });
+          finalBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        } catch (parseErr) {
+          console.warn("Could not transform excel sheet values, exporting original data:", parseErr);
+        }
+
+        const blob = new Blob([finalBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

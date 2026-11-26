@@ -178,6 +178,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
         try {
             await equipmentService.createPurchase({
                 ...formData,
+                invoice_number: formData.invoice_number || ("INV-" + Date.now()),
                 project_id: formData.project_id && formData.project_id > 0 ? formData.project_id : 0,
                 boq_item_id: formData.boq_item_id && formData.boq_item_id > 0 ? formData.boq_item_id : null,
                 warranty_end_date: formData.warranty_end_date || undefined,
@@ -250,7 +251,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Purchase Type */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Purchase Type <span className="text-rose-500">*</span>
                         </label>
                         <CustomSelect
@@ -277,7 +278,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Asset */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Asset <span className="text-rose-500">*</span>
                         </label>
                         <CustomSelect
@@ -305,7 +306,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Purchase Date */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Purchase Date <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -323,7 +324,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Vendor Name */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Vendor Name <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -341,28 +342,11 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                         )}
                     </div>
 
-                    {/* Invoice Number */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
-                            Invoice Number <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            name="invoice_number"
-                            value={formData.invoice_number}
-                            onChange={handleChange}
-                            required
-                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-700 outline-none transition-all ${fieldErrors.invoice_number ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
-                            placeholder="Enter invoice number"
-                        />
-                        {fieldErrors.invoice_number && (
-                            <p className="text-rose-500 text-[10px] font-bold ml-1 mt-1">{fieldErrors.invoice_number}</p>
-                        )}
-                    </div>
+                    
 
                     {/* Quantity */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Quantity <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -382,7 +366,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Unit Price */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Unit Price <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -403,7 +387,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Warranty End Date */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Warranty End Date <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -421,7 +405,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Project Name */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Project Name <span className="text-rose-500">*</span>
                         </label>
                         <CustomSelect
@@ -452,7 +436,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* BOQ Item ID */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             BOQ Item (Optional)
                         </label>
                         <CustomSelect
@@ -476,7 +460,7 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
 
                     {/* Notes */}
                     <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5 ml-1">
                             Notes
                         </label>
                         <textarea

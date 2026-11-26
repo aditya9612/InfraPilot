@@ -15,6 +15,35 @@ import { CustomSelect } from "../../../../components/common/CustomDropdown";
 type TabType = "Stock Overview" | "Global Inventory" | "Reports" | "Inventory Adjustment";
 
 const MaterialStockPage = () => {
+    const formatISTDateTime = (dateStr: string) => {
+        if (!dateStr) return { date: '—', time: '' };
+        try {
+            let str = String(dateStr).trim();
+            if (!str.endsWith('Z') && !str.includes('+') && !/[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$/.test(str)) {
+                str = str.includes('T') ? `${str}Z` : `${str.replace(' ', 'T')}Z`;
+            }
+            const dateObj = new Date(str);
+            if (isNaN(dateObj.getTime())) return { date: dateStr, time: '' };
+
+            const date = dateObj.toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'Asia/Kolkata'
+            });
+            const time = dateObj.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+            });
+            return { date, time };
+        } catch {
+            return { date: dateStr, time: '' };
+        }
+    };
+
     const formatINR = (amount: number | string | undefined | null) => {
         if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
@@ -432,7 +461,7 @@ const MaterialStockPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit overflow-x-auto max-w-full scrollbar-none">
                         {(["Stock Overview", "Global Inventory", "Reports", "Inventory Adjustment"] as TabType[]).map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+                            <button key={tab} onClick={() => { setActiveTab(tab); setSearchTerm(""); if (tab === "Inventory Adjustment") { setLogTypeFilter(""); } }} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
                                 {tab}
                             </button>
                         ))}
@@ -495,7 +524,7 @@ const MaterialStockPage = () => {
                         )}
                         <div>
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Stock Valuation Stats</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
                                 {[
                                     {
                                         title: "Inventory Scope",
@@ -508,6 +537,12 @@ const MaterialStockPage = () => {
                                         value: formatINR(stats.totalValue),
                                         sub: "Current Stock Value",
                                         accent: "text-emerald-500",
+                                    },
+                                    {
+                                        title: "In Stock",
+                                        value: (stats.inStockCount ?? 0).toString(),
+                                        sub: "Sufficient Resources",
+                                        accent: "text-emerald-600",
                                     },
                                     {
                                         title: "Critical Stock",
@@ -555,13 +590,13 @@ const MaterialStockPage = () => {
                                                 <th className="px-4 py-4">Unit</th>
                                                 <th className="px-4 py-4">Supplier</th>
                                                 <th className="px-4 py-4">Project</th>
-                                                <th className="px-4 py-4 text-right text-blue-500/70">Purchased</th>
-                                                <th className="px-4 py-4 text-right text-orange-500/70">Used</th>
-                                                <th className="px-4 py-4 text-right text-emerald-500/70">Remaining</th>
+                                                <th className="px-4 py-4 text-right">Purchased</th>
+                                                <th className="px-4 py-4 text-right">Used</th>
+                                                <th className="px-4 py-4 text-right">Remaining</th>
                                                 <th className="px-4 py-4 text-right">Avg Rate</th>
                                                 <th className="px-4 py-4 text-right">Total Value</th>
-                                                <th className="px-4 py-4 text-right text-emerald-500/70">Pay Given</th>
-                                                <th className="px-4 py-4 text-right text-rose-500/70">Pay Pending</th>
+                                                <th className="px-4 py-4 text-right">Pay Given</th>
+                                                <th className="px-4 py-4 text-right">Pay Pending</th>
                                                 <th className="px-4 py-4 text-center">Status</th>
                                             </tr>
                                         </thead>
@@ -783,7 +818,7 @@ const MaterialStockPage = () => {
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 border-b border-slate-200 shadow-xs z-10">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-600">Pending Pay</th></tr>
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-center">Alert</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right">Pending Pay</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? (
@@ -909,7 +944,7 @@ const MaterialStockPage = () => {
                                             const pName = (a as any).project_name || allProjects.find(p => Number(p.id) === Number(a.project_id))?.project_name || projectsList.find(p => Number(p.id) === Number(a.project_id))?.project_name || (a.project_id ? `Project #${a.project_id}` : '—');
                                             return (
                                                 <tr key={idx} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{formatISTDateTime(a.created_at).date}<br /><span className="text-[10px] text-slate-400">{formatISTDateTime(a.created_at).time}</span></td>
                                                     <td className="px-6 py-4 text-sm font-semibold text-slate-700">{pName}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{(a as any).material_name || inventory.find(i => i.material_id === a.material_id)?.material_name || globalInventory.find(i => i.material_id === a.material_id)?.material_name || `Mat #${a.material_id || ''}`}</td>
                                                     <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {(a as any).issue_type || a.type}</span></td>

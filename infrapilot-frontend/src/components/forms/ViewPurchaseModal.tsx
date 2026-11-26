@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, FileText, Calendar, Tag, IndianRupee, Package, AlertCircle } from "lucide-react";
+import { X, FileText, Calendar, Tag, IndianRupee, Package, AlertCircle, Clock, Building, ShieldCheck } from "lucide-react";
 import { equipmentService } from "../../services/equipmentService";
 import { useProject } from "../../context/ProjectContext";
 import toast from "react-hot-toast";
@@ -84,22 +84,82 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
         }
     };
 
+    const formatDateTime = (dateStr?: string) => {
+        if (!dateStr || dateStr === "null") return "N/A";
+        try {
+            const normalized = dateStr.includes("Z") || dateStr.includes("+") ? dateStr : dateStr.replace(" ", "T") + "Z";
+            const d = new Date(normalized);
+            if (isNaN(d.getTime())) return dateStr.replace("T", " ");
+            return d.toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            });
+        } catch {
+            return dateStr.replace("T", " ");
+        }
+    };
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr || dateStr === "null") return "N/A";
+        try {
+            const parts = dateStr.split("T")[0].split("-");
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const formatPurchaseType = (type?: string) => {
+        if (!type || type === "null") return "N/A";
+        const map: Record<string, string> = {
+            RENT: "Rental",
+            NEW: "New Equipment",
+            USED: "Used Equipment",
+            SPARE_PART: "Spare Part",
+            PURCHASE: "Purchase"
+        };
+        return map[type.toUpperCase()] || (type.charAt(0).toUpperCase() + type.slice(1).toLowerCase());
+    };
+
+    const getCleanNotes = (notes?: string) => {
+        if (!notes || notes === "null" || notes.trim() === "" || notes.trim().toLowerCase() === "none") {
+            return null;
+        }
+        return notes;
+    };
+
     if (!isOpen) return null;
+
+    const cleanNotes = purchase ? getCleanNotes(purchase.notes) : null;
 
     return (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
             <div className="flex justify-center min-h-full p-4">
                 <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8">
-                    <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div>
+                    {/* Modal Header */}
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-[2rem]">
+                        <div>
+                            <div className="flex items-center gap-2">
                                 <h3 className="text-xl font-bold text-slate-800 tracking-tight">
                                     Purchase Details
                                 </h3>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    View information for Purchase #{purchaseId}
-                                </p>
+                                {purchase?.purchase_type && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                        {formatPurchaseType(purchase.purchase_type)}
+                                    </span>
+                                )}
                             </div>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                View complete procurement record for Order #{purchaseId}
+                            </p>
                         </div>
                         <button
                             onClick={onClose}
@@ -109,142 +169,153 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                         </button>
                     </div>
 
-                    <div className="p-8">
+                    <div className="p-6 sm:p-8">
                         {isLoading ? (
-                            <div className="flex justify-center items-center py-12">
+                            <div className="flex justify-center items-center py-16">
                                 <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                             </div>
                         ) : !purchase ? (
-                            <div className="text-center py-12 text-slate-500">
+                            <div className="text-center py-16 text-slate-500">
                                 <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                                <p>No details found.</p>
+                                <p className="font-semibold">No details found.</p>
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                {/* Details Grid */}
+                                {/* Details Grid - Perfectly Symmetrical 2 Columns (5 balanced pairs = 10 cells) */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {/* Asset Name */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 1. Asset Name */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Package className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Asset</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.asset_name || `Asset #${purchase.asset_id}`}</p>
+                                        <p className="text-sm font-bold text-slate-800 truncate" title={purchase.asset_name || `Asset #${purchase.asset_id}`}>
+                                            {purchase.asset_name || `Asset #${purchase.asset_id}`}
+                                        </p>
                                     </div>
 
-                                    {/* Purchase Type */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 2. Project Name */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Building className="w-4 h-4 text-slate-400" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Project Name</p>
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-800 truncate" title={resolvedProjectName}>
+                                            {resolvedProjectName}
+                                        </p>
+                                    </div>
+
+                                    {/* 3. BOQ Item Name */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Tag className="w-4 h-4 text-slate-400" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">BOQ Item Name</p>
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-800 truncate" title={boqName}>
+                                            {boqName}
+                                        </p>
+                                    </div>
+
+                                    {/* 4. Purchase Type */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Tag className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Purchase Type</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.purchase_type}</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {formatPurchaseType(purchase.purchase_type)}
+                                        </p>
                                     </div>
 
-                                    {/* Vendor Name */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 5. Vendor Name */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <FileText className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Vendor Name</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.vendor_name || "N/A"}</p>
+                                        <p className="text-sm font-bold text-slate-800 truncate" title={purchase.vendor_name || "N/A"}>
+                                            {purchase.vendor_name || "N/A"}
+                                        </p>
                                     </div>
 
-                                    {/* Invoice Number */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 6. Created At (IST) */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="w-4 h-4 text-slate-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Invoice Number</p>
+                                            <Clock className="w-4 h-4 text-slate-400" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.invoice_number || "N/A"}</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {formatDateTime(purchase.created_at)}
+                                        </p>
                                     </div>
 
-                                    {/* Purchase Date */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 7. Purchase Date */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Calendar className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Purchase Date</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.purchase_date}</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {formatDate(purchase.purchase_date)}
+                                        </p>
                                     </div>
 
-                                    {/* Warranty End Date */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 8. Warranty End Date */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <Calendar className="w-4 h-4 text-slate-400" />
+                                            <ShieldCheck className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Warranty End Date</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.warranty_end_date || "N/A"}</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {formatDate(purchase.warranty_end_date)}
+                                        </p>
                                     </div>
 
-                                    {/* Quantity & Unit Price */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                                    {/* 9. Quantity & Unit Price */}
+                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <IndianRupee className="w-4 h-4 text-slate-400" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Qty & Unit Price</p>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{purchase.quantity} × ₹{purchase.unit_price}</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {purchase.quantity} × ₹{Number(purchase.unit_price || 0).toLocaleString()}
+                                        </p>
                                     </div>
 
-                                    {/* Total Amount */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-primary/5">
+                                    {/* 10. Total Amount */}
+                                    <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 flex flex-col justify-between">
                                         <div className="flex items-center gap-2 mb-2">
                                             <IndianRupee className="w-4 h-4 text-primary" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-primary">Total Amount</p>
                                         </div>
-                                        <p className="text-lg font-black text-primary">₹{purchase.total_amount?.toLocaleString() || (purchase.quantity * purchase.unit_price).toLocaleString()}</p>
-                                    </div>
-
-                                    {/* Created At */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Calendar className="w-4 h-4 text-slate-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</p>
-                                        </div>
-                                        <p className="text-sm font-bold text-slate-800">
-                                            {purchase.created_at ? purchase.created_at.replace("T", " ") : "N/A"}
+                                        <p className="text-lg font-black text-primary">
+                                            ₹{Number(purchase.total_amount || (purchase.quantity * purchase.unit_price) || 0).toLocaleString()}
                                         </p>
-                                    </div>
-
-                                    {/* Project Name */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="w-4 h-4 text-slate-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Project Name</p>
-                                        </div>
-                                        <p className="text-sm font-bold text-slate-800">{resolvedProjectName}</p>
-                                    </div>
-
-                                    {/* BOQ Item Name */}
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Package className="w-4 h-4 text-slate-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">BOQ Item Name</p>
-                                        </div>
-                                        <p className="text-sm font-bold text-slate-800">{boqName}</p>
                                     </div>
                                 </div>
 
-                                {/* Notes */}
-                                {purchase.notes && (
-                                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="w-4 h-4 text-slate-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Notes</p>
-                                        </div>
-                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{purchase.notes}</p>
+                                {/* Full-Width Notes Section */}
+                                <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FileText className="w-4 h-4 text-slate-400" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Notes</p>
                                     </div>
-                                )}
+                                    {cleanNotes ? (
+                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cleanNotes}</p>
+                                    ) : (
+                                        <p className="text-sm font-medium text-slate-400 italic">No additional notes provided.</p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Modal Footer with Close Button */}
-                    <div className="px-8 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50 rounded-b-[2rem]">
+                    {/* Modal Footer with Primary Close Button */}
+                    <div className="px-6 sm:px-8 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50 rounded-b-[2rem]">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
+                            className="px-6 py-2.5 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-95 cursor-pointer"
                         >
                             Close
                         </button>
