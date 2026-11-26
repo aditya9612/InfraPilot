@@ -674,7 +674,7 @@ const BOQPage = () => {
                         <div key={s.title} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all group overflow-hidden relative">
                             <div className={`absolute top-0 right-0 w-16 h-16 opacity-[0.03] -mr-8 -mt-8 rounded-full ${s.accent} group-hover:scale-150 transition-transform duration-700`}></div>
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.title}</p>
+                                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{s.title}</p>
                                 <p className={`text-2xl font-black ${s.text}`}>{s.value}</p>
                                 <div className="flex items-center gap-2 mt-3">
                                     <div className={`h-1 w-8 rounded-full ${s.accent}`}></div>
@@ -804,18 +804,18 @@ const BOQPage = () => {
                                     ) : (
                                         <table className="w-full text-left">
                                             <thead>
-                                                <tr className="bg-slate-900/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
-                                                    <th className="px-6 py-5">Identified Item</th>
-                                                    <th className="px-6 py-5">Description</th>
-                                                    <th className="px-6 py-5">Project</th>
-                                                    <th className="px-6 py-5">Category</th>
-                                                    <th className="px-6 py-5">Quantity Unit</th>
-                                                    <th className="px-6 py-5">Unit Rate</th>
-                                                    <th className="px-6 py-5">Estimated Total</th>
-                                                    <th className="px-6 py-5">Budget Variance</th>
-                                                    <th className="px-6 py-5 text-center">Status</th>
-                                                    <th className="px-6 py-5 text-center">Approval Status</th>
-                                                    <th className="px-6 py-5 text-right">Actions</th>
+                                                <tr className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Identified Item</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Description</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Project</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Category</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Quantity Unit</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Unit Rate</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Estimated Total</th>
+                                                    <th className="px-6 py-4 font-bold text-slate-800">Budget Variance</th>
+                                                    <th className="px-6 py-4 text-center font-bold text-slate-800">Status</th>
+                                                    <th className="px-6 py-4 text-center font-bold text-slate-800">Approval Status</th>
+                                                    <th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
@@ -1193,12 +1193,12 @@ const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | 
                     ) : (
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                                    <th className="px-6 py-4">Item Name</th>
-                                    <th className="px-6 py-4 text-right">Estimated</th>
-                                    <th className="px-6 py-4 text-right">Actual</th>
-                                    <th className="px-6 py-4 text-right">Variance</th>
-                                    <th className="px-6 py-4 text-center">Efficiency</th>
+                                <tr className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <th className="px-6 py-4 font-bold text-slate-800">Item Name</th>
+                                    <th className="px-6 py-4 text-right font-bold text-slate-800">Estimated</th>
+                                    <th className="px-6 py-4 text-right font-bold text-slate-800">Actual</th>
+                                    <th className="px-6 py-4 text-right font-bold text-slate-800">Variance</th>
+                                    <th className="px-6 py-4 text-center font-bold text-slate-800">Efficiency</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -1354,13 +1354,13 @@ const ItemListView = ({
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                                <th className="px-6 py-4">Item Name</th>
-                                <th className="px-6 py-4">Description</th>
-                                <th className="px-6 py-4">Quantity</th>
-                                <th className="px-6 py-4 text-right">Unit Rate</th>
-                                <th className="px-6 py-4 text-center">Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                            <tr className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                <th className="px-6 py-4 font-bold text-slate-800">Item Name</th>
+                                <th className="px-6 py-4 font-bold text-slate-800">Description</th>
+                                <th className="px-6 py-4 font-bold text-slate-800">Quantity</th>
+                                <th className="px-6 py-4 text-right font-bold text-slate-800">Unit Rate</th>
+                                <th className="px-6 py-4 text-center font-bold text-slate-800">Status</th>
+                                <th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">

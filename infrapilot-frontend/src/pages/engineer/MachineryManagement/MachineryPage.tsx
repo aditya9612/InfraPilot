@@ -1874,7 +1874,7 @@ const MachineryPage = () => {
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-slate-800">Usage Analytics</h2>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Usage Analytics</h2>
                     <button onClick={() => { setFormData({}); setIsUsageModalOpen(true); }} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
                         Log Usage
                     </button>
@@ -1887,7 +1887,7 @@ const MachineryPage = () => {
                         { title: "Usage Entries", value: totalCount.toString(), sub: "Total logs recorded", accent: "text-emerald-500" }
                     ].map((s) => (
                         <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{s.title}</p>
                             <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
                         </div>
@@ -1896,11 +1896,17 @@ const MachineryPage = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50"><h3 className="font-bold text-sm text-slate-800">Usage Report Summary</h3></div>
+                        <div className="p-4 border-b border-slate-200 bg-slate-100/70"><h3 className="font-bold text-sm text-slate-900">Usage Report Summary</h3></div>
                         <div className="overflow-auto max-h-[400px]">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
-                                    <tr><th className="p-4">Equipment</th><th className="p-4">Total Hrs</th><th className="p-4">Total Fuel</th><th className="p-4">Avg Hrs</th><th className="p-4">Entries</th></tr>
+                                <thead className="bg-slate-100 sticky top-0 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
+                                    <tr>
+                                        <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                        <th className="p-4 font-bold text-slate-800">Total Hrs</th>
+                                        <th className="p-4 font-bold text-slate-800">Total Fuel</th>
+                                        <th className="p-4 font-bold text-slate-800">Avg Hrs</th>
+                                        <th className="p-4 font-bold text-slate-800">Entries</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {usageReport.map(r => (
@@ -1918,8 +1924,8 @@ const MachineryPage = () => {
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-sm text-slate-800">
+                        <div className="p-4 border-b border-slate-200 bg-slate-100/70">
+                            <h3 className="font-bold text-sm text-slate-900">
                                 Logs {selectedEquipment ? `— ${selectedEquipment.equipment_name || selectedEquipment.equipment_code}` : "(Select equipment)"}
                             </h3>
                         </div>
@@ -2371,13 +2377,13 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <thead className="bg-slate-100 sticky top-0 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4">Equipment</th>
-                                    <th className="p-4">Total Hrs</th>
-                                    <th className="p-4">Total Fuel</th>
-                                    <th className="p-4">Avg Hrs</th>
-                                    <th className="p-4">Entries</th>
+                                    <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                    <th className="p-4 font-bold text-slate-800">Total Hrs</th>
+                                    <th className="p-4 font-bold text-slate-800">Total Fuel</th>
+                                    <th className="p-4 font-bold text-slate-800">Avg Hrs</th>
+                                    <th className="p-4 font-bold text-slate-800">Entries</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
