@@ -1680,16 +1680,16 @@ const MachineryPage = () => {
 
                 <div className="flex-1 overflow-auto">
                     <table className="w-full text-left min-w-[1000px]">
-                        <thead className="bg-slate-800 text-white sticky top-0 z-10 text-[11px] uppercase font-bold tracking-wider shadow-sm">
+                        <thead className="bg-slate-100 sticky top-0 z-10 text-[11px] uppercase font-bold tracking-wider text-slate-800 border-b border-slate-200 shadow-sm">
                             <tr>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Equipment</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold min-w-[170px]">Project Name</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Ownership</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Operator</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Usage</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Condition</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold">Maintenance</th>
-                                <th className="px-6 py-4 border-b border-slate-700 text-slate-100 font-bold text-right">Actions</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Equipment</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap min-w-[170px]">Project Name</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Ownership</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Operator</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Usage</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Condition</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">Maintenance</th>
+                                <th className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -2102,30 +2102,38 @@ const MachineryPage = () => {
                 <div className="space-y-6">
                     {/* All Rental History Container */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[400px]">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3 relative z-20 rounded-t-2xl">
                             <h3 className="font-bold text-sm text-slate-800">
                                 All Rental History
                             </h3>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</span>
-                                <select
-                                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:border-primary bg-white"
-                                    value={selectedEquipment?.id || ""}
-                                    onChange={(e) => {
-                                        if (e.target.value === "") {
-                                            setSelectedEquipment(null);
-                                        } else {
-                                            const eq = equipmentList.find(item => item.id === Number(e.target.value));
-                                            if (eq) setSelectedEquipment(eq);
-                                        }
-                                        setRentalCurrentPage(1);
-                                    }}
-                                >
-                                    <option value="">All Equipment</option>
-                                    {modalEquipmentList.map(eq => (
-                                        <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
-                                    ))}
-                                </select>
+                            <div className="flex items-center gap-2.5">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Select Equipment</span>
+                                <div className="w-64 sm:w-72">
+                                    <CustomSelect
+                                        value={selectedEquipment?.id ? String(selectedEquipment.id) : "all"}
+                                        onChange={(val) => {
+                                            if (!val || val === "all") {
+                                                setSelectedEquipment(null);
+                                            } else {
+                                                const eq = equipmentList.find(item => item.id === Number(val));
+                                                if (eq) setSelectedEquipment(eq);
+                                            }
+                                            setRentalCurrentPage(1);
+                                        }}
+                                        options={[
+                                            { id: "all", label: "All Equipment", searchKey: "all equipment" },
+                                            ...modalEquipmentList.map(eq => ({
+                                                id: String(eq.id),
+                                                label: `${eq.equipment_code} - ${eq.equipment_name}`,
+                                                searchKey: `${eq.equipment_code} ${eq.equipment_name}`
+                                            }))
+                                        ]}
+                                        placeholder="All Equipment"
+                                        searchable={true}
+                                        placement="bottom"
+                                        maxHeight="max-h-64"
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div className="overflow-auto flex-1">

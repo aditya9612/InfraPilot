@@ -35,6 +35,9 @@ import {
   ChevronDown
 } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
+import { materialService } from "../../services/materialService";
+import AdminMaterialReportsModal, { type AdminReportKey } from "../../components/admin/inventory/AdminMaterialReportsModal";
+import type { Material, PurchaseOrder, InwardReceipt, OutwardIssue, DailyStockRecord, StockLedgerEntry } from "../../types/material";
 
 type ReportCategory = "Operations" | "Resources" | "Financials" | "Performance";
 
@@ -151,6 +154,64 @@ const ReportsPage = () => {
   // Labour filter modal
   const [isLabourFilterOpen, setIsLabourFilterOpen] = useState(false);
   const [labourFilterFormat, setLabourFilterFormat] = useState<"PDF" | "Excel">("PDF");
+
+  // Material & Inventory 9 Reports Center
+  const [isMatReportCenterOpen, setIsMatReportCenterOpen] = useState(false);
+  const [matReportKey, setMatReportKey] = useState<AdminReportKey>("overall_stock");
+  const [matData, setMatData] = useState<{
+    materials: Material[];
+    pos: PurchaseOrder[];
+    inwards: InwardReceipt[];
+    outwards: OutwardIssue[];
+    dailyStocks: DailyStockRecord[];
+    ledger: StockLedgerEntry[];
+    projectMap: Record<number, string>;
+    supplierMap: Record<number, string>;
+  }>({
+    materials: [],
+    pos: [],
+    inwards: [],
+    outwards: [],
+    dailyStocks: [],
+    ledger: [],
+    projectMap: {},
+    supplierMap: {},
+  });
+
+  const openMaterialReportCenter = async (key: AdminReportKey = "overall_stock") => {
+    const pid = selectedProjectId ? Number(selectedProjectId) : undefined;
+    const toastId = toast.loading("Loading material & inventory analytics...");
+    try {
+      const [mats, sups, inws, outs, daily, ledg] = await Promise.all([
+        materialService.listMaterials(pid).catch(() => []),
+        materialService.getSuppliers().catch(() => []),
+        materialService.listInwards(pid).catch(() => []),
+        materialService.listOutwards(pid).catch(() => []),
+        materialService.listDailyStocks(pid).catch(() => []),
+        materialService.getStockLedger(pid).catch(() => []),
+      ]);
+      const pMap: Record<number, string> = {};
+      projects.forEach((p: any) => { pMap[p.id] = p.project_name || p.name; });
+      const sMap: Record<number, string> = {};
+      sups.forEach((s: any) => { sMap[s.id] = s.name; });
+      const extPos = materialService.getExtendedPOs();
+      setMatData({
+        materials: mats,
+        pos: pid ? extPos.filter((x) => x.project_id === pid || !x.project_id) : extPos,
+        inwards: inws,
+        outwards: outs,
+        dailyStocks: daily,
+        ledger: ledg,
+        projectMap: pMap,
+        supplierMap: sMap,
+      });
+      setMatReportKey(key);
+      setIsMatReportCenterOpen(true);
+      toast.dismiss(toastId);
+    } catch {
+      toast.error("Failed to load inventory report data", { id: toastId });
+    }
+  };
 
   const [stats, setStats] = useState({
     totalExpense: 0,
@@ -745,6 +806,13 @@ const ReportsPage = () => {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => openMaterialReportCenter("overall_stock")}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm transition-all active:scale-95"
+            >
+              <BarChart3 size={18} className="text-indigo-600" />
+              Material & Stock Reports (9)
+            </button>
+            <button
               onClick={() => handleExportCombined("PDF")}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
@@ -1050,6 +1118,21 @@ const ReportsPage = () => {
           setIsCombinedPeriodModalOpen(false);
           handleCombinedPeriodConfirm(selection);
         }}
+      />
+
+      <AdminMaterialReportsModal
+        isOpen={isMatReportCenterOpen}
+        onClose={() => setIsMatReportCenterOpen(false)}
+        initialReport={matReportKey}
+        materials={matData.materials}
+        pos={matData.pos}
+        inwards={matData.inwards}
+        outwards={matData.outwards}
+        dailyStocks={matData.dailyStocks}
+        ledger={matData.ledger}
+        projectMap={matData.projectMap}
+        supplierMap={matData.supplierMap}
+        valuationMethod={materialService.getValuationMethod()}
       />
     </>
   );
