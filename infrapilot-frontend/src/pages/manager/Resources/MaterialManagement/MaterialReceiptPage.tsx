@@ -21,8 +21,19 @@ const RATE_TYPES = ["FIXED", "PER_UNIT", "PER_KG", "PER_TON", "PER_BAG"];
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
 
 const getApiErrorMessage = (error: any, defaultMessage: string = "Operation failed") => {
-    if (typeof error?.response?.data?.detail === 'string') return error.response.data.detail;
-    return error?.response?.data?.detail?.[0]?.msg || error?.response?.data?.message || defaultMessage;
+    const detail = error?.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail) && detail.length > 0) {
+        return detail
+            .map((d: any) => {
+                if (typeof d === 'string') return d;
+                const loc = Array.isArray(d?.loc) ? d.loc.filter((x: any) => x !== 'body').join('.') : '';
+                const msg = d?.msg || 'Invalid value';
+                return loc ? `${loc.replace(/_/g, ' ')}: ${msg}` : msg;
+            })
+            .join(' | ');
+    }
+    return error?.response?.data?.message || error?.message || defaultMessage;
 };
 
 type TabType = "Materials" | "Suppliers" | "Purchase Orders" | "Dashboard";
@@ -39,7 +50,6 @@ const MaterialReceiptPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success'; message: string; fields?: string[] } | null>(null);
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     // Data States
     const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -268,7 +278,12 @@ const MaterialReceiptPage = () => {
     const filteredSuppliers = useMemo(() => suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
     const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
-    const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
+    const filteredPOs = useMemo(() => purchaseOrders.filter(p => {
+        const q = searchTerm.toLowerCase();
+        const sName = (p.supplier_name || suppliers.find(s => Number(s.id) === Number(p.supplier_id))?.name || '').toLowerCase();
+        const pName = ((p as any).project_name || projectsList.find(pr => Number(pr.id) === Number(p.project_id))?.project_name || '').toLowerCase();
+        return p.material_name.toLowerCase().includes(q) || sName.includes(q) || pName.includes(q);
+    }), [purchaseOrders, suppliers, projectsList, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
     const masterMaterialOptions = useMemo(() => [
@@ -301,7 +316,7 @@ const MaterialReceiptPage = () => {
         ...RATE_TYPES.map(r => ({ id: r, label: r }))
     ], []);
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const labelClasses = "block text-xs font-black text-slate-800 uppercase tracking-wider mb-1.5 ml-1";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
     const supplierLabelClasses = "block text-xs font-black text-slate-800 uppercase tracking-wider mb-2 ml-1";
     const supplierInputClasses = "w-full px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 focus:border-emerald-500 text-slate-800 text-sm font-medium rounded-xl outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500/20 shadow-sm";
@@ -362,25 +377,64 @@ const MaterialReceiptPage = () => {
             else await materialService.createMaterial({ ...materialForm, project_id: materialForm.project_id || projectId } as any);
             toast.success(selectedMaterial ? "Material updated!" : "Material added successfully!");
             setIsMaterialModalOpen(false); fetchMaterials();
-        } catch (error: any) { toast.error(getApiErrorMessage(error, "Operation failed")); }
+        } catch (error: any) {
+            const msg = getApiErrorMessage(error, "Operation failed");
+            setFormNotification({ type: 'error', message: msg });
+            toast.error(msg);
+        }
         finally { setIsSubmitting(false); }
     };
 
     const handleRecordPurchase = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!selectedMaterial) return; setIsSubmitting(true);
+        e.preventDefault();
+        if (!selectedMaterial) return;
+        setFormNotification(null);
+
+        const missingFields: string[] = [];
+        if (purchaseForm.quantity === undefined || purchaseForm.quantity === null || purchaseForm.quantity === "" || Number(purchaseForm.quantity) <= 0 || isNaN(Number(purchaseForm.quantity))) {
+            missingFields.push("Quantity");
+        }
+        if (purchaseForm.rate === undefined || purchaseForm.rate === null || purchaseForm.rate === "" || Number(purchaseForm.rate) <= 0 || isNaN(Number(purchaseForm.rate))) {
+            missingFields.push("Rate");
+        }
+        if (purchaseForm.amount_paid === undefined || purchaseForm.amount_paid === null || purchaseForm.amount_paid === "" || Number(purchaseForm.amount_paid) < 0 || isNaN(Number(purchaseForm.amount_paid))) {
+            missingFields.push("Amount Paid");
+        }
+        const resolvedProjectId = Number(purchaseForm.project_id || projectId);
+        if (!resolvedProjectId) missingFields.push("Project");
+        if (!purchaseForm.issue_type) missingFields.push("Issue Type");
+
+        if (missingFields.length > 0) {
+            setFormNotification({
+                type: 'error',
+                message: `Mandatory fields required: ${missingFields.join(', ')}`,
+                fields: missingFields
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
             await materialService.createPurchaseOrder({
                 supplier_id: purchaseForm.supplier_id || selectedMaterial.supplier_id,
-                project_id: purchaseForm.project_id || projectId || 1,
+                project_id: resolvedProjectId,
                 material_id: selectedMaterial.id,
                 boq_item_id: purchaseForm.boq_item_id,
-                quantity: purchaseForm.quantity,
-                rate: purchaseForm.rate
-            });
+                quantity: Number(purchaseForm.quantity),
+                rate: Number(purchaseForm.rate),
+                amount_paid: Number(purchaseForm.amount_paid),
+                issue_type: purchaseForm.issue_type
+            } as any);
             toast.success("Purchase recorded as a Purchase Order!");
-            setIsPurchaseModalOpen(false); fetchPOs();
-        } catch (error: any) { toast.error(getApiErrorMessage(error, "Failed to record purchase")); }
-        finally { setIsSubmitting(false); }
+            setIsPurchaseModalOpen(false);
+            fetchPOs();
+        } catch (error: any) {
+            const msg = getApiErrorMessage(error, "Failed to record purchase");
+            setFormNotification({ type: 'error', message: msg });
+            toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleSupplierSubmit = async (e: React.FormEvent) => {
@@ -389,7 +443,7 @@ const MaterialReceiptPage = () => {
 
         const name = (supplierForm.name || "").trim();
         const contactPerson = (supplierForm.contactPerson || "").trim();
-        const contact = (supplierForm.contact || "").trim();
+        const contact = (supplierForm.contact ?? (supplierForm as any).phone_email ?? "").trim();
         const gst = (supplierForm.gst || "").trim();
         const address = (supplierForm.address || "").trim();
 
@@ -397,7 +451,7 @@ const MaterialReceiptPage = () => {
         const missingFields: string[] = [];
         if (!name) missingFields.push("Supplier Name");
         if (!contactPerson) missingFields.push("Contact Person");
-        if (!contact) missingFields.push("Phone Number");
+        if (!contact) missingFields.push("Phone / Email");
         if (!gst) missingFields.push("GST Number");
 
         if (missingFields.length > 0) {
@@ -424,9 +478,10 @@ const MaterialReceiptPage = () => {
             errorFields.push("Contact Person");
         }
         const isPhone = /^[0-9]{10}$/.test(contact);
-        if (!isPhone) {
-            invalidFields.push("Phone Number (must be 10 digits)");
-            errorFields.push("Phone Number");
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
+        if (!isPhone && !isEmail) {
+            invalidFields.push("Phone / Email (must be 10 digits or valid email)");
+            errorFields.push("Phone / Email");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
         if (!gstRegex.test(gst.toUpperCase())) {
@@ -626,12 +681,26 @@ const MaterialReceiptPage = () => {
                     </div>
 
                     {/* Project Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value={0}>All Projects</option>
-                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
-                        </select>
+                    <div className="flex items-center gap-2.5 relative z-20">
+                        <span className="text-sm font-bold text-slate-500 whitespace-nowrap">Project:</span>
+                        <div className="w-60 sm:w-64">
+                            <CustomSelect
+                                value={projectId ? String(projectId) : "0"}
+                                onChange={(val) => handleProjectChange(Number(val || 0))}
+                                options={[
+                                    { id: "0", label: "All Projects", searchKey: "all projects" },
+                                    ...projectsList.map(p => ({
+                                        id: String(p.id),
+                                        label: p.project_name || `Project #${p.id}`,
+                                        searchKey: p.project_name || `Project #${p.id}`
+                                    }))
+                                ]}
+                                placeholder="All Projects"
+                                searchable={projectsList.length > 5}
+                                placement="bottom"
+                                maxHeight="max-h-60"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -737,12 +806,14 @@ const MaterialReceiptPage = () => {
                                         {activeTab === "Suppliers" && (
                                             <tr className="bg-slate-100 text-slate-700">
                                                 <th className="px-6 py-4 font-bold text-slate-800">Supplier Name</th><th className="px-6 py-4 font-bold text-slate-800">Contact Person</th>
-                                                <th className="px-6 py-4 font-bold text-slate-800">Phone</th><th className="px-6 py-4 font-bold text-slate-800">GST Number</th><th className="px-6 py-4 font-bold text-slate-800">Address</th><th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
+                                                <th className="px-6 py-4 font-bold text-slate-800">Phone / Email</th><th className="px-6 py-4 font-bold text-slate-800">GST Number</th><th className="px-6 py-4 font-bold text-slate-800">Address</th><th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                             </tr>
                                         )}
                                         {activeTab === "Purchase Orders" && (
                                             <tr>
                                                 <th className="px-6 py-4">Material</th>
+                                                <th className="px-6 py-4">Project Name</th>
+                                                <th className="px-6 py-4">Supplier Name</th>
                                                 <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Total</th>
                                                 <th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
@@ -780,7 +851,7 @@ const MaterialReceiptPage = () => {
                                                                     setIsMaterialModalOpen(true);
                                                                 } catch (e) { toast.error("Failed to load details"); }
                                                             }} className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                            <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, project_id: projectId, supplier_id: m.supplier_id }); if (boqs.length === 0 && projectId) fetchBoqs(projectId); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setSelectedMaterial(m); setFormNotification(null); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId || m.project_id || "", supplier_id: m.supplier_id, issue_type: "SYSTEM" }); if (boqs.length === 0 && (projectId || m.project_id)) fetchBoqs(projectId || m.project_id); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
                                                             <button onClick={async () => {
                                                                 try {
                                                                     setSelectedMaterial(m);
@@ -805,7 +876,7 @@ const MaterialReceiptPage = () => {
                                                 <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-900">{s.name}</td>
                                                     <td className="px-6 py-4 text-sm font-semibold text-slate-800">{s.contactPerson}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-700">{s.contact}</td>
+                                                    <td className="px-6 py-4 text-sm font-medium text-slate-700">{s.contact || (s as any).phone_email || '-'}</td>
                                                     <td className="px-6 py-4 text-sm font-mono font-medium text-slate-700">{s.gst || '-'}</td>
                                                     <td className="px-6 py-4 text-sm font-medium text-slate-700">{s.address || '-'}</td>
                                                     <td className="px-6 py-4 text-right">
@@ -825,6 +896,12 @@ const MaterialReceiptPage = () => {
                                             )) : paginatedPOs.map(p => (
                                                 <tr key={p.id} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                                                        {(p as any).project_name || projectsList.find(pr => Number(pr.id) === Number(p.project_id))?.project_name || (p.project_id ? `Project #${p.project_id}` : '-')}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                                                        {p.supplier_name || suppliers.find(s => Number(s.id) === Number(p.supplier_id))?.name || (p.supplier_id ? `Supplier #${p.supplier_id}` : '-')}
+                                                    </td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
                                                     <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
@@ -872,7 +949,7 @@ const MaterialReceiptPage = () => {
                         </div>
                     )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+                        <h3 className="text-sm font-black text-slate-900 mb-4 border-b border-slate-200 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {!selectedMaterial && (
                                 <div>
@@ -940,7 +1017,7 @@ const MaterialReceiptPage = () => {
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
+                        <h3 className="text-sm font-black text-slate-900 mb-4 border-b border-slate-200 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label>
@@ -1049,7 +1126,7 @@ const MaterialReceiptPage = () => {
                 isOpen={isViewMaterialOpen}
                 onClose={() => setIsViewMaterialOpen(false)}
                 title="Material Details"
-                maxWidth="max-w-3xl"
+                maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end w-full">
                         <button
@@ -1063,46 +1140,97 @@ const MaterialReceiptPage = () => {
                 }
             >
                 {selectedMaterial && (
-                    <div className="p-6 space-y-6">
-                        <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
-                            <div>
-                                <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_master_name || selectedMaterial.material_name}</h3>
-                                <p className="text-sm font-bold text-slate-500">{selectedMaterial.material_code} • {selectedMaterial.category}</p>
+                    <div className="p-6 space-y-5 font-inter">
+                        {/* Material Header Banner */}
+                        <div className="bg-primary/5 p-5 rounded-2xl border border-primary/15 flex flex-wrap justify-between items-start gap-4">
+                            <div className="min-w-0 flex-1 space-y-1">
+                                <h3 className="text-xl sm:text-2xl font-black text-slate-900 break-words">
+                                    {selectedMaterial.material_master_name || selectedMaterial.material_name}
+                                </h3>
+                                <p className="text-xs sm:text-sm font-bold text-slate-500 break-words">
+                                    {selectedMaterial.material_code || `MAT-${selectedMaterial.id}`} &bull; {selectedMaterial.category || "General"}
+                                </p>
                             </div>
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                {selectedMaterial.alert_type?.replace(/_/g, ' ')}
+                            <span className={`px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border shrink-0 ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                {selectedMaterial.alert_type?.replace(/_/g, ' ') || 'IN STOCK'}
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                                <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{selectedMaterial.unit_name || selectedMaterial.unit}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Master Name</p><p className="font-bold text-slate-700">{selectedMaterial.material_master_name || 'N/A'}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p><p className="font-bold text-slate-700">{selectedMaterial.material_master_brand || 'General'}</p></div>
+                        {/* General Info & Stock Details */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                            <div className="lg:col-span-7 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                                <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2.5">General Info</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Project</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p>
+                                    </div>
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Supplier</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p>
+                                    </div>
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Unit</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{selectedMaterial.unit_name || selectedMaterial.unit}</p>
+                                    </div>
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Stock</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{selectedMaterial.minimum_stock_level}</p>
+                                    </div>
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Master Name</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{selectedMaterial.material_master_name || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Brand</p>
+                                        <p className="text-sm font-bold text-slate-800 break-words">{selectedMaterial.material_master_brand || 'General'}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                                <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Stock Details</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchased</p><p className="font-bold text-slate-700">{selectedMaterial.quantity_purchased}</p></div>
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Used</p><p className="font-bold text-slate-700">{selectedMaterial.quantity_used || 0}</p></div>
-                                    <div className="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center"><p className="text-xs font-bold text-blue-800 uppercase tracking-widest">Remaining</p><p className="font-black text-lg text-blue-700">{selectedMaterial.remaining_stock} {selectedMaterial.unit}</p></div>
+
+                            <div className="lg:col-span-5 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between gap-4">
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2.5">Stock Details</h4>
+                                    <div className="grid grid-cols-2 gap-3.5">
+                                        <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Purchased</p>
+                                            <p className="text-lg font-extrabold text-slate-800 break-words">{selectedMaterial.quantity_purchased}</p>
+                                        </div>
+                                        <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Used</p>
+                                            <p className="text-lg font-extrabold text-slate-800 break-words">{selectedMaterial.quantity_used || 0}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200/80 flex flex-wrap justify-between items-center gap-2">
+                                    <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Remaining Stock</p>
+                                    <p className="font-black text-xl text-blue-700 break-words">{selectedMaterial.remaining_stock} {selectedMaterial.unit}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                            <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Financials</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rate ({selectedMaterial.rate_type})</p><p className="font-bold text-slate-700">{formatINR(selectedMaterial.purchase_rate)}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</p><p className="font-bold text-slate-700">{formatINR(selectedMaterial.total_amount)}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Payment Given</p><p className="font-bold text-emerald-600">{formatINR(selectedMaterial.payment_given)}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending / Extra</p><p className={`font-bold ${(selectedMaterial.payment_pending ?? 0) > 0 ? 'text-rose-600' : 'text-slate-700'}`}>{(selectedMaterial.payment_pending ?? 0) > 0 ? `Pending: ${formatINR(selectedMaterial.payment_pending)}` : `Extra: ${formatINR(selectedMaterial.extra_paid || 0)}`}</p></div>
+                        {/* Financials */}
+                        <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                            <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2.5">Financials</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                                <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rate ({selectedMaterial.rate_type})</p>
+                                    <p className="text-base font-extrabold text-slate-800 break-words">{formatINR(selectedMaterial.purchase_rate)}</p>
+                                </div>
+                                <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+                                    <p className="text-base font-extrabold text-slate-800 break-words">{formatINR(selectedMaterial.total_amount)}</p>
+                                </div>
+                                <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Payment Given</p>
+                                    <p className="text-base font-extrabold text-emerald-600 break-words">{formatINR(selectedMaterial.payment_given)}</p>
+                                </div>
+                                <div className="bg-white p-3.5 rounded-xl border border-slate-100 min-w-0">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pending / Extra</p>
+                                    <p className={`text-base font-extrabold break-words ${(selectedMaterial.payment_pending ?? 0) > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                                        {(selectedMaterial.payment_pending ?? 0) > 0 ? `Pending: ${formatINR(selectedMaterial.payment_pending)}` : `Extra: ${formatINR(selectedMaterial.extra_paid || 0)}`}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1110,8 +1238,8 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal D: Record Purchase */}
-            <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsPurchaseModalOpen(false)} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
-                <form id="purchase-form" onSubmit={handleRecordPurchase} className="space-y-6">
+            <Modal isOpen={isPurchaseModalOpen} onClose={() => { setIsPurchaseModalOpen(false); setFormNotification(null); }} title="Record Purchase" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => { setIsPurchaseModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button><button form="purchase-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : "Save Purchase"}</button></>}>
+                <form id="purchase-form" noValidate onSubmit={handleRecordPurchase} className="space-y-6">
                     {/* Inline Validation Error Banner */}
                     {formNotification && formNotification.type === 'error' && (
                         <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mb-4">
@@ -1126,15 +1254,84 @@ const MaterialReceiptPage = () => {
                         </div>
                     )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
+                        <h3 className="text-sm font-black text-slate-900 mb-4 border-b border-slate-200 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Project <span className="text-rose-500">*</span></label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div className="z-[59]">
+                            <div>
+                                <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min="0.01"
+                                    step="any"
+                                    placeholder="Enter quantity"
+                                    value={purchaseForm.quantity || ""}
+                                    onChange={e => {
+                                        setPurchaseForm({ ...purchaseForm, quantity: e.target.value === "" ? "" : Number(e.target.value) });
+                                        if (formNotification?.fields?.includes("Quantity")) {
+                                            setFormNotification(prev => prev ? { ...prev, fields: prev.fields?.filter(f => f !== "Quantity") } : null);
+                                        }
+                                    }}
+                                    className={`${inputClasses} ${formNotification?.fields?.includes("Quantity") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                />
+                                {formNotification?.fields?.includes("Quantity") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Rate <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min="0.01"
+                                    step="any"
+                                    placeholder="Enter rate"
+                                    value={purchaseForm.rate || ""}
+                                    onChange={e => {
+                                        setPurchaseForm({ ...purchaseForm, rate: e.target.value === "" ? "" : Number(e.target.value) });
+                                        if (formNotification?.fields?.includes("Rate")) {
+                                            setFormNotification(prev => prev ? { ...prev, fields: prev.fields?.filter(f => f !== "Rate") } : null);
+                                        }
+                                    }}
+                                    className={`${inputClasses} ${formNotification?.fields?.includes("Rate") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                />
+                                {formNotification?.fields?.includes("Rate") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    placeholder="Enter amount paid"
+                                    value={purchaseForm.amount_paid ?? ""}
+                                    onChange={e => {
+                                        setPurchaseForm({ ...purchaseForm, amount_paid: e.target.value === "" ? "" : Number(e.target.value) });
+                                        if (formNotification?.fields?.includes("Amount Paid")) {
+                                            setFormNotification(prev => prev ? { ...prev, fields: prev.fields?.filter(f => f !== "Amount Paid") } : null);
+                                        }
+                                    }}
+                                    className={`${inputClasses} ${formNotification?.fields?.includes("Amount Paid") ? "!border-rose-500 !bg-rose-50" : ""}`}
+                                />
+                                {formNotification?.fields?.includes("Amount Paid") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="relative z-[58]">
+                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
                                 <CustomSelect
-                                    label="BOQ Item"
+                                    value={purchaseForm.project_id || projectId || ""}
+                                    onChange={(val: any) => {
+                                        setPurchaseForm({ ...purchaseForm, project_id: val ? Number(val) : undefined });
+                                        if (formNotification?.fields?.includes("Project")) {
+                                            setFormNotification(prev => prev ? { ...prev, fields: prev.fields?.filter(f => f !== "Project") } : null);
+                                        }
+                                    }}
+                                    options={projectOptions}
+                                    placeholder="Select Project"
+                                    searchable={projectsList.length > 5}
+                                    placement="auto"
+                                    maxHeight="max-h-48"
+                                    error={formNotification?.fields?.includes("Project")}
+                                />
+                                {formNotification?.fields?.includes("Project") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
+                            <div className="relative z-[59]">
+                                <label className={labelClasses}>BOQ Item</label>
+                                <CustomSelect
                                     value={purchaseForm.boq_item_id || ""}
                                     onChange={(val: any) => setPurchaseForm({ ...purchaseForm, boq_item_id: val ? Number(val) : undefined })}
                                     options={[
@@ -1146,21 +1343,54 @@ const MaterialReceiptPage = () => {
                                         }))
                                     ]}
                                     placeholder="Select BOQ"
-                                    placement="bottom"
-                                    maxHeight="max-h-48"
+                                    placement="top"
+                                    maxHeight="max-h-44"
                                     searchable={boqs.length > 5}
                                 />
                             </div>
-                            <div><label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div className="relative z-[60]">
+                                <label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label>
+                                <CustomSelect
+                                    value={purchaseForm.issue_type || "SYSTEM"}
+                                    onChange={(val: any) => {
+                                        setPurchaseForm({ ...purchaseForm, issue_type: val as IssueType });
+                                        if (formNotification?.fields?.includes("Issue Type")) {
+                                            setFormNotification(prev => prev ? { ...prev, fields: prev.fields?.filter(f => f !== "Issue Type") } : null);
+                                        }
+                                    }}
+                                    options={ISSUE_TYPES.map(i => ({ id: i, label: i }))}
+                                    placeholder="Select Issue Type"
+                                    placement="top"
+                                    maxHeight="max-h-44"
+                                    error={formNotification?.fields?.includes("Issue Type")}
+                                />
+                                {formNotification?.fields?.includes("Issue Type") && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
+                            </div>
                         </div>
                     </div>
                 </form>
             </Modal>
 
             {/* Modal E: Price History */}
-            <Modal isOpen={isPriceHistoryOpen} onClose={() => setIsPriceHistoryOpen(false)} title={`Price History - ${selectedMaterial?.material_name}`} maxWidth="max-w-lg">
+            <Modal
+                isOpen={isPriceHistoryOpen}
+                onClose={() => setIsPriceHistoryOpen(false)}
+                title={`Price History - ${selectedMaterial?.material_name}`}
+                maxWidth="max-w-lg"
+                footer={
+                    <div className="flex justify-end w-full">
+                        <button
+                            type="button"
+                            onClick={() => setIsPriceHistoryOpen(false)}
+                            className="px-6 py-2.5 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
+                        >
+                            Close
+                        </button>
+                    </div>
+                }
+            >
                 <div className="p-4">
-                    <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Date</th><th className="p-3 text-right">Rate</th></tr></thead><tbody className="divide-y divide-slate-100">
+                    <table className="w-full text-left text-sm"><thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200"><tr><th className="p-3 font-bold">Date</th><th className="p-3 text-right font-bold">Rate</th></tr></thead><tbody className="divide-y divide-slate-100">
                         {priceHistory.map((ph, i) => <tr key={i}> <td className="p-3">{new Date(ph.date).toLocaleString()}</td><td className="p-3 text-right font-bold">{formatINR(ph.rate)}</td></tr>)}
                         {priceHistory.length === 0 && <tr><td colSpan={2} className="p-4 text-center text-slate-400">No history found</td></tr>}
                     </tbody></table>
@@ -1168,9 +1398,25 @@ const MaterialReceiptPage = () => {
             </Modal>
 
             {/* Modal F: Transactions */}
-            <Modal isOpen={isTransactionsOpen} onClose={() => setIsTransactionsOpen(false)} title={`Transactions - ${selectedMaterial?.material_name}`} maxWidth="max-w-4xl">
+            <Modal
+                isOpen={isTransactionsOpen}
+                onClose={() => setIsTransactionsOpen(false)}
+                title={`Transactions - ${selectedMaterial?.material_name}`}
+                maxWidth="max-w-4xl"
+                footer={
+                    <div className="flex justify-end w-full">
+                        <button
+                            type="button"
+                            onClick={() => setIsTransactionsOpen(false)}
+                            className="px-6 py-2.5 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
+                        >
+                            Close
+                        </button>
+                    </div>
+                }
+            >
                 <div className="p-4 overflow-x-auto">
-                    <table className="w-full text-left text-xs whitespace-nowrap"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3 text-center">Qty</th><th className="p-3 text-right">Rate</th><th className="p-3 text-right">Amount</th><th className="p-3">Issue Type</th></tr></thead><tbody className="divide-y divide-slate-100">
+                    <table className="w-full text-left text-xs whitespace-nowrap"><thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200"><tr><th className="p-3 font-bold">Date</th><th className="p-3 font-bold">Type</th><th className="p-3 text-center font-bold">Qty</th><th className="p-3 text-right font-bold">Rate</th><th className="p-3 text-right font-bold">Amount</th><th className="p-3 font-bold">Issue Type</th></tr></thead><tbody className="divide-y divide-slate-100">
                         {transactions.map((t, i) => <tr key={i}>
                             <td className="p-3">{new Date(t.created_at).toLocaleString()}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
@@ -1190,7 +1436,7 @@ const MaterialReceiptPage = () => {
                 maxWidth="max-w-2xl"
                 footer={<>
                     <button type="button" onClick={() => { setIsSupplierModalOpen(false); setFormNotification(null); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
-                    <button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Update Supplier" : "Save Supplier")}</button>
+                    <button form="supplier-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Saving..." : (selectedSupplier ? "Save Changes" : "Save Supplier")}</button>
                 </>}
             >
                 <form id="supplier-form" noValidate onSubmit={handleSupplierSubmit} className="space-y-6">
@@ -1254,24 +1500,24 @@ const MaterialReceiptPage = () => {
 
                             <div>
                                 <label className={supplierLabelClasses}>
-                                    Phone Number <span className="text-rose-500">*</span>
+                                    Phone / Email <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
-                                    maxLength={10}
-                                    value={supplierForm.contact || ""}
+                                    maxLength={100}
+                                    value={supplierForm.contact ?? (supplierForm as any).phone_email ?? ""}
                                     onChange={e => {
-                                        setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) });
-                                        if (formNotification?.fields?.includes("Phone Number")) {
-                                            const updated = formNotification.fields.filter(f => f !== "Phone Number");
+                                        setSupplierForm({ ...supplierForm, contact: e.target.value, phone_email: e.target.value });
+                                        if (formNotification?.fields?.includes("Phone / Email")) {
+                                            const updated = formNotification.fields.filter(f => f !== "Phone / Email");
                                             setFormNotification(updated.length > 0 ? { ...formNotification, fields: updated } : null);
                                         }
                                     }}
-                                    className={`${supplierInputClasses} ${formNotification?.fields?.includes("Phone Number") ? "!border-rose-500 !bg-rose-50/50 ring-2 ring-rose-500/20" : ""}`}
-                                    placeholder="E.g. 9876543210"
+                                    className={`${supplierInputClasses} ${formNotification?.fields?.includes("Phone / Email") ? "!border-rose-500 !bg-rose-50/50 ring-2 ring-rose-500/20" : ""}`}
+                                    placeholder="E.g. 9876543210 or supplier@gmail.com"
                                 />
-                                {formNotification?.fields?.includes("Phone Number") && (
-                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required / Exactly 10 digits</p>
+                                {formNotification?.fields?.includes("Phone / Email") && (
+                                    <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">Required / 10-digit phone or valid email</p>
                                 )}
                             </div>
 
@@ -1316,7 +1562,7 @@ const MaterialReceiptPage = () => {
                 isOpen={isViewSupplierOpen}
                 onClose={() => setIsViewSupplierOpen(false)}
                 title="Supplier Details"
-                maxWidth="max-w-3xl"
+                maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end w-full">
                         <button
@@ -1342,7 +1588,7 @@ const MaterialReceiptPage = () => {
                             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Contact Information</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Person</p><p className="font-bold text-slate-700">{selectedSupplier.contactPerson || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone Number</p><p className="font-bold text-slate-700">{selectedSupplier.contact || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone / Email</p><p className="font-bold text-slate-700 break-words">{selectedSupplier.contact || (selectedSupplier as any).phone_email || '-'}</p></div>
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Address</p><p className="font-bold text-slate-700">{selectedSupplier.address || '-'}</p></div>
                             </div>
                         </div>
@@ -1548,7 +1794,7 @@ const MaterialReceiptPage = () => {
                 isOpen={isViewPOOpen}
                 onClose={() => setIsViewPOOpen(false)}
                 title="Purchase Order Intelligence"
-                maxWidth="max-w-3xl"
+                maxWidth="max-w-4xl"
                 footer={
                     <div className="flex justify-end w-full">
                         <button

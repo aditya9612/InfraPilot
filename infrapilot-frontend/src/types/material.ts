@@ -22,6 +22,7 @@ export interface Supplier {
   contactPerson?: string;
   phone?: string;
   email?: string;
+  phone_email?: string;
   gst?: string;
   address?: string;
 }
@@ -32,6 +33,7 @@ export interface SupplierCreate {
   contactPerson?: string;
   phone?: string;
   email?: string;
+  phone_email?: string;
   gst?: string;
   address?: string;
 }

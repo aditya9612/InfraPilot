@@ -379,7 +379,7 @@ export const materialService = {
     const payload = {
       supplier_name: data.name || data.supplier_name,
       contact_person: data.contactPerson || data.contact_person || undefined,
-      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.phone_email || data.contact || undefined),
+      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.contact || data.phone_email || undefined),
       gst_number: data.gst || data.gst_number || undefined,
       address: data.address || undefined
     };
@@ -405,7 +405,7 @@ export const materialService = {
     const payload = {
       supplier_name: data.name || data.supplier_name,
       contact_person: data.contactPerson || data.contact_person || undefined,
-      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.phone_email || data.contact || undefined),
+      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.contact || data.phone_email || undefined),
       gst_number: data.gst || data.gst_number || undefined,
       address: data.address || undefined
     };

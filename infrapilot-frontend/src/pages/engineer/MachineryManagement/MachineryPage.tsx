@@ -357,36 +357,79 @@ const MachineryPage = () => {
         return () => { isMounted = false; };
     }, [createPurchaseForm.project_id, isCreatePurchaseModalOpen]);
 
-    // Resolve BOQ Item Names dynamically for Maintenance & Usage Logs
+    // Resolve BOQ Item Names dynamically for Maintenance, Usage Logs & Purchase History
     useEffect(() => {
         const idsToFetch = new Set<number>();
-        (selectedEquipmentLogs.maint || []).forEach((log: any) => {
-            if (log.boq_item_id) {
-                const id = Number(log.boq_item_id);
-                const explicitName = log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name;
-                if (explicitName) {
-                    setBoqNamesMap(prev => (prev[id] === explicitName ? prev : { ...prev, [id]: explicitName }));
-                } else if (!boqNamesMap[id]) {
-                    idsToFetch.add(id);
+        const purchaseProjectIds = new Set<number>();
+        const resolvedDirect: Record<number, string> = {};
+
+        const inspectRecord = (log: any, isPurchase = false) => {
+            if (!log?.boq_item_id) return;
+            const id = Number(log.boq_item_id);
+            const explicitName = log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name;
+            if (explicitName) {
+                resolvedDirect[id] = explicitName;
+            } else if (!boqNamesMap[id]) {
+                idsToFetch.add(id);
+                if (isPurchase && log.project_id) {
+                    purchaseProjectIds.add(Number(log.project_id));
                 }
             }
-        });
+        };
 
-        (selectedEquipmentLogs.usage || []).forEach((log: any) => {
-            if (log.boq_item_id) {
-                const id = Number(log.boq_item_id);
-                const explicitName = log.boq_item_name || log.boq_name || log.boq_item?.item_name || log.boq_item?.name;
-                if (explicitName) {
-                    setBoqNamesMap(prev => (prev[id] === explicitName ? prev : { ...prev, [id]: explicitName }));
-                } else if (!boqNamesMap[id]) {
-                    idsToFetch.add(id);
-                }
-            }
-        });
+        (selectedEquipmentLogs.maint || []).forEach((log: any) => inspectRecord(log));
+        (selectedEquipmentLogs.usage || []).forEach((log: any) => inspectRecord(log));
+        (purchaseList || []).forEach((p: any) => inspectRecord(p, true));
 
-        if (idsToFetch.size === 0) return;
+        if (Object.keys(resolvedDirect).length > 0) {
+            setBoqNamesMap(prev => ({ ...prev, ...resolvedDirect }));
+        }
+
+        if (idsToFetch.size === 0 && purchaseProjectIds.size === 0) return;
 
         let isMounted = true;
+
+        // First resolve by project BOQ lists (covers nested/group BOQ items in Purchase History)
+        const unwrapBoqItems = (list: any[]): any[] => {
+            const res: any[] = [];
+            list.forEach((b: any) => {
+                if (!b) return;
+                if (Array.isArray(b.items) && b.items.length > 0) res.push(...unwrapBoqItems(b.items));
+                else if (Array.isArray(b.boq_items) && b.boq_items.length > 0) res.push(...unwrapBoqItems(b.boq_items));
+                else if (Array.isArray(b.sub_items) && b.sub_items.length > 0) res.push(...unwrapBoqItems(b.sub_items));
+                else res.push(b);
+            });
+            return res;
+        };
+
+        purchaseProjectIds.forEach(async (pId) => {
+            try {
+                let rawList: any[] = [];
+                try {
+                    const bItems = await boqService.getBoqItems(pId);
+                    rawList = Array.isArray(bItems) ? bItems : ((bItems as any)?.items || (bItems as any)?.boq_items || (bItems as any)?.data || []);
+                } catch { }
+                if (rawList.length === 0) {
+                    try {
+                        const byProj = await boqService.getBoqsByProject(pId);
+                        rawList = Array.isArray(byProj) ? byProj : ((byProj as any)?.items || (byProj as any)?.boq_items || (byProj as any)?.data || []);
+                    } catch { }
+                }
+                const items = unwrapBoqItems(rawList);
+                if (isMounted && items.length > 0) {
+                    const mapUpdates: Record<number, string> = {};
+                    items.forEach((b: any) => {
+                        const bid = Number(b.id ?? b.boq_item_id ?? b.item_id);
+                        const bName = b.item_name || b.name || b.description || b.title || b.work_description || b.item_code;
+                        if (bid && bName) mapUpdates[bid] = bName;
+                    });
+                    if (Object.keys(mapUpdates).length > 0) {
+                        setBoqNamesMap(prev => ({ ...prev, ...mapUpdates }));
+                    }
+                }
+            } catch { }
+        });
+
         idsToFetch.forEach(async (id) => {
             try {
                 const item = await boqService.getBoqById(id);
@@ -401,12 +444,13 @@ const MachineryPage = () => {
 
             // Fallback: try project boqs if matching log has project_id
             const matchingLog = (selectedEquipmentLogs.maint || []).find((l: any) => Number(l.boq_item_id) === id) ||
-                (selectedEquipmentLogs.usage || []).find((l: any) => Number(l.boq_item_id) === id);
+                (selectedEquipmentLogs.usage || []).find((l: any) => Number(l.boq_item_id) === id) ||
+                (purchaseList || []).find((l: any) => Number(l.boq_item_id) === id);
             const pId = (matchingLog as any)?.project_id || selectedProjectId;
             if (pId) {
                 try {
                     const pBoqs = await boqService.getBoqsByProject(pId);
-                    const match = pBoqs.find(b => Number(b.id) === id || Number((b as any).boq_item_id) === id);
+                    const match = unwrapBoqItems(Array.isArray(pBoqs) ? pBoqs : []).find(b => Number(b.id) === id || Number((b as any).boq_item_id) === id);
                     if (match && isMounted) {
                         const name = match.item_name || (match as any).name || (match as any).description || (match as any).title || (match as any).work_description;
                         if (name) setBoqNamesMap(prev => ({ ...prev, [id]: name }));
@@ -416,7 +460,7 @@ const MachineryPage = () => {
         });
 
         return () => { isMounted = false; };
-    }, [selectedEquipmentLogs.maint, selectedEquipmentLogs.usage, selectedProjectId]);
+    }, [selectedEquipmentLogs.maint, selectedEquipmentLogs.usage, purchaseList, selectedProjectId]);
 
     // ─── Form Notification State & Helpers ──────────────────────────────
     const [formNotification, setFormNotification] = useState<{ type: 'error' | 'success', message?: string, fields?: string[] } | null>(null);
@@ -750,6 +794,8 @@ const MachineryPage = () => {
 
     const handleRefreshEquipmentList = async () => {
         setIsRefreshingEq(true);
+        setSearchTerm("");
+        setCurrentPage(1);
         try {
             await Promise.all([
                 fetchTabData(),
@@ -1000,6 +1046,8 @@ const MachineryPage = () => {
         const missing: string[] = [];
         if (!createPurchaseForm.purchase_type) missing.push("Purchase Type");
         if (!createPurchaseForm.project_id) missing.push("Project");
+        if (!createPurchaseForm.quantity || Number(createPurchaseForm.quantity) <= 0) missing.push("Quantity");
+        if (createPurchaseForm.unit_price === undefined || createPurchaseForm.unit_price === "" || isNaN(Number(createPurchaseForm.unit_price)) || Number(createPurchaseForm.unit_price) < 0) missing.push("Unit Price");
 
         if (!form.checkValidity() || missing.length > 0) {
             const formMissing = getMissingFields(form);
@@ -1007,11 +1055,24 @@ const MachineryPage = () => {
             setFormNotification({ type: 'error', message: combined.length === 0 ? "Please fill all mandatory fields" : undefined, fields: combined.length > 0 ? combined : undefined });
             return;
         }
+
+        const qtyDigits = String(createPurchaseForm.quantity).replace(/[^0-9]/g, '');
+        const priceDigits = String(createPurchaseForm.unit_price).replace(/[^0-9]/g, '');
+        if (qtyDigits.length > 12 || priceDigits.length > 12) {
+            const msg = "Numeric inputs cannot exceed 12 digits in total";
+            setFormNotification({ type: 'error', message: msg });
+            toast.error(msg);
+            return;
+        }
         setFormNotification(null);
         try {
+            const qtyNum = Number(createPurchaseForm.quantity);
+            const priceNum = Number(createPurchaseForm.unit_price);
             const payload = {
                 ...createPurchaseForm,
-                total_amount: createPurchaseForm.total_amount || ((createPurchaseForm.quantity || 0) * (createPurchaseForm.unit_price || 0))
+                quantity: qtyNum,
+                unit_price: priceNum,
+                total_amount: Number((qtyNum * priceNum).toFixed(2))
             };
             if (createPurchaseForm.id) {
                 await equipmentService.updatePurchase(createPurchaseForm.id, payload);
@@ -1023,7 +1084,19 @@ const MachineryPage = () => {
             setIsCreatePurchaseModalOpen(false);
             setRefreshTrigger(prev => prev + 1);
         } catch (error: any) {
-            setFormNotification({ type: 'error', message: error.message || "Failed to save purchase" });
+            const detail = error?.response?.data?.detail;
+            let errorMsg = "Failed to save purchase";
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+            } else if (Array.isArray(detail) && detail.length > 0) {
+                errorMsg = detail.map((d: any) => (typeof d === 'string' ? d : d?.msg || "Validation error")).join(', ');
+            } else if (error?.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error?.message) {
+                errorMsg = error.message;
+            }
+            setFormNotification({ type: 'error', message: errorMsg });
+            toast.error(errorMsg);
         }
     };
 
@@ -1825,7 +1898,7 @@ const MachineryPage = () => {
                             <div className="p-4 border-b border-slate-100 bg-slate-50"><h3 className="font-bold text-sm text-slate-800">Transfer History {selectedEquipment ? `— ${selectedEquipment.equipment_name}` : ''}</h3></div>
                             <div className="overflow-x-auto max-h-[400px]">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                                    <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                         <tr>
                                             <th className="p-4">Equipment</th>
                                             <th className="p-4">From Project</th>
@@ -1839,7 +1912,7 @@ const MachineryPage = () => {
                                             <tr key={i} className="hover:bg-slate-50">
                                                 <td className="p-4 font-bold text-slate-800">{t.equipment_name || t.equipment?.equipment_name || selectedEquipment?.equipment_name || '-'}</td>
                                                 <td className="p-4 text-slate-600">{t.from_project_name || t.from_project?.project_name || t.from_project?.name || 'Central Yard'}</td>
-                                                <td className="p-4 text-indigo-600 font-medium">{t.to_project_name || t.to_project?.project_name || t.to_project?.name || 'Central Yard'}</td>
+                                                <td className="p-4 text-slate-600">{t.to_project_name || t.to_project?.project_name || t.to_project?.name || 'Central Yard'}</td>
                                                 <td className="p-4 text-slate-600">{t.transferred_by_name || usersMap[t.transferred_by] || '-'}</td>
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="text-slate-500">{t.transferred_at ? new Date(t.transferred_at).toLocaleString() : (t.transfer_date ? new Date(t.transfer_date).toLocaleDateString() : 'N/A')}</div>
@@ -2000,7 +2073,7 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[440px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase whitespace-nowrap">
+                            <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200 whitespace-nowrap">
                                 <tr>
                                     <th className="p-4">Project</th>
                                     <th className="p-4">BOQ Item</th>
@@ -2138,7 +2211,7 @@ const MachineryPage = () => {
                         </div>
                         <div className="overflow-auto flex-1">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 sticky top-0 z-10 font-bold text-slate-500 text-[10px] uppercase tracking-wider shadow-sm">
+                                <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200 shadow-sm">
                                     <tr>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Equipment</th>
                                         <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Start Date</th>
@@ -2164,7 +2237,7 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-3 font-bold text-slate-900">{log.client_name}</td>
                                                 <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
                                                 <td className="px-6 py-3">
-                                                    <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
+                                                    <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${log.status === 'ACTIVE' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.status || 'COMPLETED'}</span>
                                                 </td>
                                                 <td className="px-6 py-3 whitespace-nowrap text-right">
                                                     <div className="flex items-center justify-end gap-1">
@@ -2296,11 +2369,11 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4">Equipment</th>
-                                    <th className="p-4">Total Hrs</th>
-                                    <th className="p-4">Utilization Rate</th>
+                                    <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                    <th className="p-4 font-bold text-slate-800">Total Hrs</th>
+                                    <th className="p-4 font-bold text-slate-800">Utilization Rate</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2340,14 +2413,14 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4">Equipment</th>
-                                    <th className="p-4">Total Cost</th>
-                                    <th className="p-4">Rentals</th>
-                                    <th className="p-4">Avg Cost</th>
-                                    <th className="p-4">Total Days</th>
-                                    <th className="p-4">Rev/Day</th>
+                                    <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                    <th className="p-4 font-bold text-slate-800">Total Cost</th>
+                                    <th className="p-4 font-bold text-slate-800">Rentals</th>
+                                    <th className="p-4 font-bold text-slate-800">Avg Cost</th>
+                                    <th className="p-4 font-bold text-slate-800">Total Days</th>
+                                    <th className="p-4 font-bold text-slate-800">Rev/Day</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2446,25 +2519,38 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4">Equipment</th>
-                                    <th className="p-4">Purchase Count</th>
-                                    <th className="p-4 text-center">Quantity</th>
-                                    <th className="p-4">Cost</th>
-                                    <th className="p-4">Type</th>
+                                    <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                    <th className="p-4 font-bold text-slate-800">Purchase Count</th>
+                                    <th className="p-4 font-bold text-slate-800 text-center">Quantity</th>
+                                    <th className="p-4 font-bold text-slate-800">Cost</th>
+                                    <th className="p-4 font-bold text-slate-800">Type</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => (
-                                    <tr key={i} className="hover:bg-slate-50">
-                                        <td className="p-4 font-bold text-slate-900">{p.asset_name}</td>
-                                        <td className="p-4">{p.purchase_count}</td>
-                                        <td className="p-4 text-center">{p.total_quantity}</td>
-                                        <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
-                                        <td className="p-4">{p.purchase_type}</td>
-                                    </tr>
-                                )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No purchase data</td></tr>}
+                                {paginatedPurchase.length > 0 ? paginatedPurchase.map((p: any, i) => {
+                                    const pType = String(p.purchase_type || '-').toUpperCase();
+                                    const typeBadgeClass =
+                                        pType === 'NEW' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                        pType === 'RENT' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                        pType === 'USED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                        pType === 'SPARE_PART' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                        'bg-slate-100 text-slate-700 border-slate-200';
+                                    return (
+                                        <tr key={i} className="hover:bg-slate-50">
+                                            <td className="p-4 font-bold text-slate-900">{p.asset_name}</td>
+                                            <td className="p-4">{p.purchase_count}</td>
+                                            <td className="p-4 text-center">{p.total_quantity}</td>
+                                            <td className="p-4">₹{p.total_purchase_amount?.toLocaleString()}</td>
+                                            <td className="p-4">
+                                                <span className={`inline-block px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border ${typeBadgeClass}`}>
+                                                    {pType}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No purchase data</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -2491,11 +2577,11 @@ const MachineryPage = () => {
                     </div>
                     <div className="overflow-auto max-h-[300px]">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase">
+                            <thead className="bg-slate-100 sticky top-0 z-10 font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4">Equipment</th>
-                                    <th className="p-4">Status</th>
-                                    <th className="p-4">Project ID</th>
+                                    <th className="p-4 font-bold text-slate-800">Equipment</th>
+                                    <th className="p-4 font-bold text-slate-800">Status</th>
+                                    <th className="p-4 font-bold text-slate-800">Project Name</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2503,8 +2589,8 @@ const MachineryPage = () => {
                                     <tr key={i} className="hover:bg-slate-50">
                                         <td className="p-4 font-bold text-slate-900">{a.equipment_name || a.equipment_code}</td>
                                         <td className="p-4">
-                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                                {a.is_available ? "true" : "false"}
+                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${a.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                {a.is_available ? "AVAILABLE" : "NOT AVAILABLE"}
                                             </span>
                                         </td>
                                         <td className="p-4">{a.project_id ? (projects.find(p => Number(p.id) === Number(a.project_id))?.project_name || projects.find(p => Number(p.id) === Number(a.project_id))?.name || a.project_id) : '-'}</td>
@@ -2571,29 +2657,29 @@ const MachineryPage = () => {
                     </div>
                     <div className="flex-1 overflow-auto">
                         <table className="w-full text-left min-w-[800px]">
-                            <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                            <thead className="bg-slate-100 sticky top-0 z-10 text-xs uppercase font-bold text-slate-800 tracking-wider border-b border-slate-200">
                                 <tr>
-                                    <th className="px-6 py-4 border-b border-slate-200">Project</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">BOQ Item</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Type</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Asset Name</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Purchase Date</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Vendor</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Invoice Number</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Quantity</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Unit Price</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Total Amount</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Warranty End Date</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Notes</th>
-                                    <th className="px-6 py-4 border-b border-slate-200">Created At</th>
-                                    <th className="px-6 py-4 border-b border-slate-200 text-right">Action</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Project</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">BOQ Item</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Type</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Asset Name</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Purchase Date</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Vendor</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Invoice Number</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Quantity</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Unit Price</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Total Amount</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Warranty End Date</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Notes</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200">Created At</th>
+                                    <th className="px-6 py-4 font-bold text-slate-800 border-b border-slate-200 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedPurchase.map(item => (
                                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-3 text-sm text-slate-900">{item.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || '-'}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-900">{item.boq_item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id))?.name || '-'}</td>
+                                        <td className="px-6 py-3 text-sm text-slate-900">{item.boq_item_name || (item as any).boq_name || (item as any).boq_item?.item_name || (item as any).boq_item?.name || (item.boq_item_id ? boqNamesMap[Number(item.boq_item_id)] : undefined) || boqsList.find(b => Number(b.id) === Number(item.boq_item_id) || Number((b as any).boq_item_id) === Number(item.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(item.boq_item_id) || Number((b as any).boq_item_id) === Number(item.boq_item_id))?.name || '-'}</td>
                                         <td className="px-6 py-3 text-xs font-bold text-slate-900">{item.purchase_type}</td>
                                         <td className="px-6 py-3 font-bold text-sm text-slate-800">{item.asset_name}</td>
                                         <td className="px-6 py-3 text-sm text-slate-500">{item.purchase_date}</td>
@@ -2927,12 +3013,24 @@ const MachineryPage = () => {
                         <input type="date" required max={new Date().toISOString().split('T')[0]} value={formData.usage_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, usage_date: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary ${formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') ? "!border-rose-500 !bg-rose-50" : ""}`} />
                         {formNotification?.fields?.some(f => f.toUpperCase() === 'USAGE DATE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                     </div>
-                    <div>
+                    <div className="relative z-30">
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item (Optional)</label>
-                        <select value={formData.boq_item_id || ''} onChange={(e) => setFormData({ ...formData, boq_item_id: Number(e.target.value) || undefined })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
-                            <option value="">-- Choose BOQ item --</option>
-                            {boqsList.map(boq => <option key={boq.id} value={boq.id}>{boq.item_name || `BOQ Item #${boq.id}`}</option>)}
-                        </select>
+                        <CustomSelect
+                            value={formData.boq_item_id ? String(formData.boq_item_id) : ""}
+                            onChange={(val) => setFormData({ ...formData, boq_item_id: val ? Number(val) : undefined })}
+                            options={[
+                                { id: "", label: "-- Choose BOQ item --" },
+                                ...boqsList.map(boq => ({
+                                    id: String(boq.id),
+                                    label: boq.item_name || `BOQ Item #${boq.id}`,
+                                    searchKey: boq.item_name || `BOQ Item #${boq.id}`
+                                }))
+                            ]}
+                            placeholder="-- Choose BOQ item --"
+                            searchable={boqsList.length > 5}
+                            placement="top"
+                            maxHeight="max-h-44"
+                        />
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Notes</label>
@@ -3529,26 +3627,37 @@ const MachineryPage = () => {
                             />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'PROJECT') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
                         </div>
-                        <div>
+                        <div className="z-20 relative">
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">BOQ Item</label>
-                            <select
-                                value={createPurchaseForm.boq_item_id || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })}
+                            <CustomSelect
+                                value={createPurchaseForm.boq_item_id ? String(createPurchaseForm.boq_item_id) : ""}
+                                onChange={(val) => setCreatePurchaseForm({ ...createPurchaseForm, boq_item_id: val ? Number(val) : undefined })}
                                 disabled={isFetchingPurchaseBoqs}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                <option value="">{isFetchingPurchaseBoqs ? "Fetching BOQ items..." : (!createPurchaseForm.project_id ? "Select a project first" : (purchaseBoqItems.length === 0 ? "No BOQ items for this project" : "Select BOQ Item"))}</option>
-                                {purchaseBoqItems.map((b, idx) => {
-                                    const idVal = b.id ?? b.boq_item_id ?? b.item_id ?? idx;
-                                    const name = b.item_name || b.name || b.description || b.title || b.item_code || b.work_description || `BOQ Item #${idVal}`;
-                                    const unit = b.unit || b.unit_name ? ` (${b.unit || b.unit_name})` : "";
-                                    return (
-                                        <option key={`${idVal}-${idx}`} value={idVal}>
-                                            {name}{unit}
-                                        </option>
-                                    );
-                                })}
-                            </select>
+                                options={[
+                                    {
+                                        id: "",
+                                        label: isFetchingPurchaseBoqs
+                                            ? "Fetching BOQ items..."
+                                            : (!createPurchaseForm.project_id
+                                                ? "Select a project first"
+                                                : (purchaseBoqItems.length === 0 ? "No BOQ items for this project" : "Select BOQ Item"))
+                                    },
+                                    ...purchaseBoqItems.map((b, idx) => {
+                                        const idVal = b.id ?? b.boq_item_id ?? b.item_id ?? idx;
+                                        const name = b.item_name || b.name || b.description || b.title || b.item_code || b.work_description || `BOQ Item #${idVal}`;
+                                        const unit = b.unit || b.unit_name ? ` (${b.unit || b.unit_name})` : "";
+                                        return {
+                                            id: String(idVal),
+                                            label: `${name}${unit}`,
+                                            searchKey: `${name} ${unit}`
+                                        };
+                                    })
+                                ]}
+                                placeholder={isFetchingPurchaseBoqs ? "Fetching BOQ items..." : (!createPurchaseForm.project_id ? "Select a project first" : (purchaseBoqItems.length === 0 ? "No BOQ items for this project" : "Select BOQ Item"))}
+                                placement="bottom"
+                                maxHeight="max-h-48"
+                                searchable={purchaseBoqItems.length > 5}
+                            />
                             {isFetchingPurchaseBoqs && (
                                 <p className="text-[10px] font-bold text-primary animate-pulse mt-1 uppercase tracking-wider">Fetching project BOQ items...</p>
                             )}
@@ -3604,11 +3713,23 @@ const MachineryPage = () => {
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Quantity <span className="text-red-600">*</span></label>
                             <input
                                 required
-                                type="number"
-                                min="1"
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={12}
                                 placeholder="0"
-                                value={createPurchaseForm.quantity || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, quantity: parseInt(e.target.value), total_amount: parseInt(e.target.value) * (createPurchaseForm.unit_price || 0) })}
+                                value={createPurchaseForm.quantity ?? ""}
+                                onKeyDown={e => { if (['-', '+', 'e', 'E', '.'].includes(e.key)) e.preventDefault(); }}
+                                onChange={e => {
+                                    const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 12);
+                                    const qty = raw === "" ? "" : Number(raw);
+                                    const up = Number(createPurchaseForm.unit_price || 0);
+                                    const total = raw === "" ? 0 : Number(qty) * up;
+                                    setCreatePurchaseForm({
+                                        ...createPurchaseForm,
+                                        quantity: qty,
+                                        total_amount: Number.isFinite(total) ? Number(total.toFixed(2)) : 0
+                                    });
+                                }}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'QUANTITY') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'QUANTITY') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
@@ -3617,12 +3738,28 @@ const MachineryPage = () => {
                             <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Unit Price <span className="text-red-600">*</span></label>
                             <input
                                 required
-                                type="number"
-                                step="0.01"
-                                min="0"
+                                type="text"
+                                inputMode="decimal"
+                                maxLength={13}
                                 placeholder="0.00"
-                                value={createPurchaseForm.unit_price || ""}
-                                onChange={e => setCreatePurchaseForm({ ...createPurchaseForm, unit_price: parseFloat(e.target.value), total_amount: (createPurchaseForm.quantity || 0) * parseFloat(e.target.value) })}
+                                value={createPurchaseForm.unit_price ?? ""}
+                                onKeyDown={e => { if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault(); }}
+                                onChange={e => {
+                                    let raw = e.target.value.replace(/[^0-9.]/g, '');
+                                    const dotIdx = raw.indexOf('.');
+                                    if (dotIdx !== -1) {
+                                        raw = raw.slice(0, dotIdx + 1) + raw.slice(dotIdx + 1).replace(/\./g, '').slice(0, 2);
+                                    }
+                                    if (raw.replace('.', '').length > 12) return;
+                                    const numUp = raw === "" || raw === "." ? 0 : parseFloat(raw);
+                                    const qty = Number(createPurchaseForm.quantity || 0);
+                                    const total = qty * numUp;
+                                    setCreatePurchaseForm({
+                                        ...createPurchaseForm,
+                                        unit_price: raw,
+                                        total_amount: Number.isFinite(total) ? Number(total.toFixed(2)) : 0
+                                    });
+                                }}
                                 className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 ${formNotification?.fields?.some(f => f.toUpperCase() === 'UNIT PRICE') ? "!border-rose-500 !bg-rose-50" : ""}`}
                             />
                             {formNotification?.fields?.some(f => f.toUpperCase() === 'UNIT PRICE') && <p className="text-[10px] font-bold text-rose-500 mt-1 uppercase tracking-wider">REQUIRED</p>}
@@ -3808,7 +3945,7 @@ const MachineryPage = () => {
 
                         <div className="grid grid-cols-2 gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Project</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(viewPurchaseData.project_id))?.name || '-'}</p></div>
-                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
+                            <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.boq_item_name || viewPurchaseData.boq_name || viewPurchaseData.boq_item?.item_name || viewPurchaseData.boq_item?.name || (viewPurchaseData.boq_item_id ? boqNamesMap[Number(viewPurchaseData.boq_item_id)] : undefined) || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id) || Number((b as any).boq_item_id) === Number(viewPurchaseData.boq_item_id))?.item_name || boqsList.find(b => Number(b.id) === Number(viewPurchaseData.boq_item_id) || Number((b as any).boq_item_id) === Number(viewPurchaseData.boq_item_id))?.name || '-'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Type</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_type || '-'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Asset Name</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.asset_name || '-'}</p></div>
                             <div><p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Purchase Date</p><p className="text-sm font-bold text-slate-800">{viewPurchaseData.purchase_date || '-'}</p></div>

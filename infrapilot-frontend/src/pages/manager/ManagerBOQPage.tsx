@@ -1089,7 +1089,7 @@ const ManagerBOQPage = () => {
                                 {milestonesList.length === 0 ? (
                                     <div className="text-center py-6 bg-white border border-slate-100 rounded-xl">
                                         <p className="text-slate-500 font-medium text-sm">No milestones found for this project.</p>
-                                        <button onClick={() => handleGenerateTasks(0)} className="mt-4 px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-slate-200">
+                                        <button onClick={() => handleGenerateTasks(0)} className="mt-4 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
                                             Generate Without Milestone
                                         </button>
                                     </div>
@@ -1114,7 +1114,7 @@ const ManagerBOQPage = () => {
                                         ))}
 
                                         <div className="pt-4 mt-4 border-t border-slate-100">
-                                            <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl bg-slate-800 text-white font-bold text-sm hover:bg-slate-900 transition-all shadow-md shadow-slate-200">
+                                            <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl bg-primary hover:bg-blue-600 text-white font-bold text-sm transition-all shadow-lg shadow-primary/20">
                                                 Skip & Generate Without Milestone
                                             </button>
                                         </div>

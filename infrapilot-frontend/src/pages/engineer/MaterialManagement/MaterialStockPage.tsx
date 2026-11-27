@@ -249,9 +249,18 @@ const MaterialStockPage = () => {
             ? Number(reportSummary.total_stock_value)
             : (valuation.total_value || inventory.reduce((a, b) => a + Number((b as any).stock_value ?? ((Number(b.remaining_stock) || 0) * (Number(b.avg_rate) || 0))), 0));
 
+        const inStockCount = reportSummary?.in_stock_count !== undefined
+            ? Number(reportSummary.in_stock_count)
+            : inventory.filter(i => {
+                const isOut = String(i.alert_type) === 'OUT_OF_STOCK' || (i.remaining_stock !== undefined && Number(i.remaining_stock) <= 0);
+                const isLow = i.alert_type === 'LOW_STOCK' || (!isOut && i.remaining_stock !== undefined && Number(i.remaining_stock) <= (i.minimum_stock_level || 10));
+                return !isOut && !isLow;
+            }).length;
+
         return {
             totalItems,
             totalValue,
+            inStockCount,
             criticalCount: lowStock,
             outOfStockCount: outOfStock,
         };
@@ -465,23 +474,25 @@ const MaterialStockPage = () => {
                         ))}
                     </div>
 
-                    {/* Project Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-500 whitespace-nowrap">Project:</span>
-                        <div className="min-w-[220px] z-30">
-                            <CustomSelect
-                                value={projectId ? String(projectId) : ""}
-                                onChange={(val) => handleProjectChange(Number(val))}
-                                options={projectsList.map(p => ({
-                                    id: String(p.id),
-                                    label: p.project_name || `Project #${p.id}`
-                                }))}
-                                placeholder="Select Project"
-                                maxHeight="max-h-56"
-                                searchable={projectsList.length > 5}
-                            />
+                    {/* Project Filter (hidden on Global Inventory since it displays All Projects Stock) */}
+                    {activeTab !== "Global Inventory" && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-500 whitespace-nowrap">Project:</span>
+                            <div className="min-w-[220px] z-30">
+                                <CustomSelect
+                                    value={projectId ? String(projectId) : ""}
+                                    onChange={(val) => handleProjectChange(Number(val))}
+                                    options={projectsList.map(p => ({
+                                        id: String(p.id),
+                                        label: p.project_name || `Project #${p.id}`
+                                    }))}
+                                    placeholder="Select Project"
+                                    maxHeight="max-h-56"
+                                    searchable={projectsList.length > 5}
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -679,7 +690,7 @@ const MaterialStockPage = () => {
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                     <input type="text" placeholder="Search across all projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                 </div>
-                                <button onClick={fetchGlobalInventory} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <button onClick={() => { setSearchTerm(""); setCurrentPage(1); fetchGlobalInventory(); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100" title="Refresh"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
                             <div className="flex-1 overflow-auto scrollbar-thin">
                                 <table className="w-full text-left whitespace-nowrap">

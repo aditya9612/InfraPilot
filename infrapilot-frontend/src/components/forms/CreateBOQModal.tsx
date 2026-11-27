@@ -241,7 +241,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
 
   const modalTitle = initialData ? "Edit BOQ" : "Add BOQ";
 
-  const submitLabel = initialData ? 'Update BOQ' : (window.location.pathname.includes('manager') ? 'Save BOQ' : 'Create BOQ');
+  const submitLabel = initialData ? 'Save Changes' : (window.location.pathname.includes('manager') ? 'Save BOQ' : 'Create BOQ');
 
   const modalFooter = (
     <>

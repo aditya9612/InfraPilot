@@ -608,25 +608,25 @@ const MaterialConsumptionPage = () => {
                         </div>
                         <div className="flex-1 overflow-auto scrollbar-thin">
                             <table className="w-full text-left whitespace-nowrap">
-                                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0 z-10">
+                                <thead className="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
                                     {activeTab === "Usage" && (
                                         <tr>
-                                            <th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th>
-                                            <th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th><th className="px-6 py-4 text-right">Actions</th>
+                                            <th className="px-6 py-4 font-bold text-slate-800">Material Name</th><th className="px-6 py-4 text-center font-bold text-slate-800">Remaining Stock</th>
+                                            <th className="px-6 py-4 text-right font-bold text-slate-800">Avg Rate</th><th className="px-6 py-4 text-right font-bold text-slate-800">Total Value</th><th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                         </tr>
                                     )}
                                     {activeTab === "Transfers" && (
                                         <tr>
-                                            <th className="px-6 py-4">Material</th>
-                                            <th className="px-6 py-4">From Project</th>
-                                            <th className="px-6 py-4">To Project</th>
-                                            <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
+                                            <th className="px-6 py-4 font-bold text-slate-800">Material</th>
+                                            <th className="px-6 py-4 font-bold text-slate-800">From Project</th>
+                                            <th className="px-6 py-4 font-bold text-slate-800">To Project</th>
+                                            <th className="px-6 py-4 text-center font-bold text-slate-800">Qty</th><th className="px-6 py-4 text-center font-bold text-slate-800">Status</th><th className="px-6 py-4 font-bold text-slate-800">Transfer Date</th><th className="px-6 py-4 text-right font-bold text-slate-800">Actions</th>
                                         </tr>
                                     )}
                                     {activeTab === "Transactions" && (
                                         <tr>
-                                            <th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Material</th><th className="px-6 py-4 text-center">Qty</th>
-                                            <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4 text-right">Amount Paid</th><th className="px-6 py-4">Issue Type</th>
+                                            <th className="px-6 py-4 font-bold text-slate-800">Date</th><th className="px-6 py-4 font-bold text-slate-800">Type</th><th className="px-6 py-4 font-bold text-slate-800">Material</th><th className="px-6 py-4 text-center font-bold text-slate-800">Qty</th>
+                                            <th className="px-6 py-4 text-right font-bold text-slate-800">Rate</th><th className="px-6 py-4 text-right font-bold text-slate-800">Amount</th><th className="px-6 py-4 text-right font-bold text-slate-800">Amount Paid</th><th className="px-6 py-4 font-bold text-slate-800">Issue Type</th>
                                         </tr>
                                     )}
                                 </thead>

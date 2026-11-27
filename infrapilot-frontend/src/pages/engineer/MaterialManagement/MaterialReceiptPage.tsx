@@ -289,7 +289,12 @@ const MaterialReceiptPage = () => {
     const filteredSuppliers = useMemo(() => suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
     const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
-    const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
+    const filteredPOs = useMemo(() => purchaseOrders.filter(p => {
+        const q = searchTerm.toLowerCase();
+        const sName = (p.supplier_name || suppliers.find(s => Number(s.id) === Number(p.supplier_id))?.name || '').toLowerCase();
+        const pName = ((p as any).project_name || projectsList.find(pr => Number(pr.id) === Number(p.project_id))?.project_name || '').toLowerCase();
+        return p.material_name.toLowerCase().includes(q) || sName.includes(q) || pName.includes(q);
+    }), [purchaseOrders, suppliers, projectsList, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
     const labelClasses = "block text-xs font-black text-slate-900 uppercase tracking-wider mb-1.5 ml-1";
@@ -679,12 +684,23 @@ const MaterialReceiptPage = () => {
                     </div>
 
                     {/* Project Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-500">Project:</span>
-                        <select value={projectId || ""} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                            <option value="" disabled>Select Project</option>
-                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
-                        </select>
+                    <div className="flex items-center gap-2.5 relative z-20">
+                        <span className="text-sm font-bold text-slate-500 whitespace-nowrap">Project:</span>
+                        <div className="w-60 sm:w-64">
+                            <CustomSelect
+                                value={projectId ? String(projectId) : ""}
+                                onChange={(val) => handleProjectChange(Number(val))}
+                                options={projectsList.map(p => ({
+                                    id: String(p.id),
+                                    label: p.project_name || `Project #${p.id}`,
+                                    searchKey: p.project_name || `Project #${p.id}`
+                                }))}
+                                placeholder="Select Project"
+                                searchable={projectsList.length > 5}
+                                placement="bottom"
+                                maxHeight="max-h-60"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -796,6 +812,8 @@ const MaterialReceiptPage = () => {
                                         {activeTab === "Purchase Orders" && (
                                             <tr>
                                                 <th className="px-6 py-4">Material</th>
+                                                <th className="px-6 py-4">Project Name</th>
+                                                <th className="px-6 py-4">Supplier Name</th>
                                                 <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Total</th>
                                                 <th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
@@ -881,6 +899,12 @@ const MaterialReceiptPage = () => {
                                                 )) : paginatedPOs.map(p => (
                                                     <tr key={p.id} className="hover:bg-slate-50/50">
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                                                            {(p as any).project_name || projectsList.find(pr => Number(pr.id) === Number(p.project_id))?.project_name || (p.project_id ? `Project #${p.project_id}` : '-')}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                                                            {p.supplier_name || suppliers.find(s => Number(s.id) === Number(p.supplier_id))?.name || (p.supplier_id ? `Supplier #${p.supplier_id}` : '-')}
+                                                        </td>
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
                                                         <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
                                                         <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>

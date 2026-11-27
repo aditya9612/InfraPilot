@@ -15,14 +15,6 @@ interface ModalProps {
 
 const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl", hideHeader = false, bodyPadding = "p-6" }: ModalProps) => {
   useEffect(() => {
-    const preventScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target && target.closest && target.closest('.custom-scrollbar')) {
-        return; // Allow scroll inside modal body
-      }
-      e.preventDefault(); // Prevent scroll on backdrop or background
-    };
-
     if (isOpen) {
       document.body.style.overflow = "hidden";
       document.body.classList.add("modal-open");
@@ -64,7 +56,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             {!hideHeader && (
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+                  <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{title}</h2>
                 </div>
                 <button
                   onClick={onClose}
