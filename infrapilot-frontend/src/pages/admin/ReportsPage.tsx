@@ -182,21 +182,23 @@ const ReportsPage = () => {
     const pid = selectedProjectId ? Number(selectedProjectId) : undefined;
     const toastId = toast.loading("Loading material & inventory analytics...");
     try {
-      const [mats, sups, inws, outs, daily, ledg] = await Promise.all([
+      const [mats, sups, inws, outs, daily, ledg, stockSummaryApi] = await Promise.all([
         materialService.listMaterials(pid).catch(() => []),
         materialService.getSuppliers().catch(() => []),
         materialService.listInwards(pid).catch(() => []),
         materialService.listOutwards(pid).catch(() => []),
         materialService.listDailyStocks(pid).catch(() => []),
         materialService.getStockLedger(pid).catch(() => []),
+        materialService.getInventoryStockSummaryReport({ project_id: pid }).catch(() => null),
       ]);
       const pMap: Record<number, string> = {};
       projects.forEach((p: any) => { pMap[p.id] = p.project_name || p.name; });
       const sMap: Record<number, string> = {};
       sups.forEach((s: any) => { sMap[s.id] = s.name; });
       const extPos = materialService.getExtendedPOs();
+      const apiMats = Array.isArray(stockSummaryApi) ? stockSummaryApi : (stockSummaryApi?.items || stockSummaryApi?.materials || []);
       setMatData({
-        materials: mats,
+        materials: mats.length > 0 ? mats : apiMats,
         pos: pid ? extPos.filter((x) => x.project_id === pid || !x.project_id) : extPos,
         inwards: inws,
         outwards: outs,
@@ -810,7 +812,7 @@ const ReportsPage = () => {
               className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm transition-all active:scale-95"
             >
               <BarChart3 size={18} className="text-indigo-600" />
-              Material & Stock Reports (9)
+              Material & Stock Reports (12)
             </button>
             <button
               onClick={() => handleExportCombined("PDF")}

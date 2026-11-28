@@ -1108,6 +1108,152 @@ export const materialService = {
     writeLocalStore("infrapilot_valuation_method", method);
   },
 
+  // ─── Admin Inventory Reports APIs (14 Endpoints) ──────────────────────
+
+  async _fetchInventoryReport(endpoint: string, params?: Record<string, any>): Promise<any> {
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "" && v !== "all") cleanParams[k] = v;
+      });
+    }
+    const response = await api.get<any>(endpoint, { params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined });
+    return response.data;
+  },
+
+  // 1. GET /api/v1/inventory/reports/stock-summary
+  async getInventoryStockSummaryReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/stock-summary", params);
+  },
+
+  // 2. GET /api/v1/inventory/reports/low-stock-alerts
+  async getInventoryLowStockAlertsReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/low-stock-alerts", params);
+  },
+
+  // 3. GET /api/v1/inventory/reports/batch-inventory
+  async getInventoryBatchInventoryReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/batch-inventory", params);
+  },
+
+  // 4. GET /api/v1/inventory/reports/po-fulfillment
+  async getInventoryPOFulfillmentReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/po-fulfillment", params);
+  },
+
+  // 5. GET /api/v1/inventory/reports/grn-register
+  async getInventoryGRNRegisterReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/grn-register", params);
+  },
+
+  // 6. GET /api/v1/inventory/reports/issue-register
+  async getInventoryIssueRegisterReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/issue-register", params);
+  },
+
+  // 7. GET /api/v1/inventory/reports/daily-stock-variance
+  async getInventoryDailyStockVarianceReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/daily-stock-variance", params);
+  },
+
+  // 8. GET /api/v1/inventory/reports/supplier-stock
+  async getInventorySupplierStockReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/supplier-stock", params);
+  },
+
+  // 9. GET /api/v1/inventory/reports/daily-movement
+  async getInventoryDailyMovementReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/daily-movement", params);
+  },
+
+  // 10. GET /api/v1/inventory/reports/movement-register
+  async getInventoryMovementRegisterReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/movement-register", params);
+  },
+
+  // 11. GET /api/v1/inventory/reports/combined-movement
+  async getInventoryCombinedMovementReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/combined-movement", params);
+  },
+
+  // 12. GET /api/v1/inventory/reports/audit-trail
+  async getInventoryAuditTrailReport(params?: Record<string, any>): Promise<any> {
+    return materialService._fetchInventoryReport("/inventory/reports/audit-trail", params);
+  },
+
+  async fetchInventoryReportByKey(reportKey: string, params?: Record<string, any>): Promise<{ endpoint: string; data: any }> {
+    const endpointMap: Record<string, string> = {
+      overall_stock: "/inventory/reports/stock-summary",
+      site_stock: "/inventory/reports/stock-summary",
+      low_stock_alerts: "/inventory/reports/low-stock-alerts",
+      batch_inventory: "/inventory/reports/batch-inventory",
+      po_report: "/inventory/reports/po-fulfillment",
+      inward_report: "/inventory/reports/grn-register",
+      outward_report: "/inventory/reports/issue-register",
+      daily_stock_variance: "/inventory/reports/daily-stock-variance",
+      supplier_stock: "/inventory/reports/supplier-stock",
+      daily_movement: "/inventory/reports/daily-movement",
+      material_lifecycle: "/inventory/reports/movement-register",
+      combined_movement: "/inventory/reports/combined-movement",
+      audit_activity: "/inventory/reports/audit-trail",
+    };
+    const endpoint = endpointMap[reportKey] || "/inventory/reports/stock-summary";
+    const data = await materialService._fetchInventoryReport(endpoint, params);
+    return { endpoint, data };
+  },
+
+  // 13. GET /api/v1/inventory/reports/export/excel
+  async exportInventoryReportExcelApi(params?: Record<string, any>, fallbackFileName: string = "inventory_report.xlsx"): Promise<void> {
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "" && v !== "all") cleanParams[k] = v;
+      });
+    }
+    const response = await api.get("/inventory/reports/export/excel", {
+      params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,
+      responseType: "blob",
+    });
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data]);
+    if (blob.type && blob.type.includes("application/json")) {
+      throw new Error("Server returned JSON instead of Excel file");
+    }
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fallbackFileName.endsWith(".xlsx") ? fallbackFileName : `${fallbackFileName}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // 14. GET /api/v1/inventory/reports/export/pdf
+  async exportInventoryReportPdfApi(params?: Record<string, any>, fallbackFileName: string = "inventory_report.pdf"): Promise<void> {
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "" && v !== "all") cleanParams[k] = v;
+      });
+    }
+    const response = await api.get("/inventory/reports/export/pdf", {
+      params: Object.keys(cleanParams).length > 0 ? cleanParams : undefined,
+      responseType: "blob",
+    });
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: "application/pdf" });
+    if (blob.type && blob.type.includes("application/json")) {
+      throw new Error("Server returned JSON instead of PDF file");
+    }
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fallbackFileName.endsWith(".pdf") ? fallbackFileName : `${fallbackFileName}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   exportAdminReportExcel(reportName: string, columns: string[], rows: any[][]): void {
     const wsData = [columns, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(wsData);

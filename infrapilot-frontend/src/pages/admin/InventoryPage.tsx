@@ -209,20 +209,73 @@ const InventoryPage = () => {
   const [inventoryProjectId, setInventoryProjectId] = useState<number | "all">("all");
   const [dailyDateFilter, setDailyDateFilter] = useState<string>("");
   const [isLogsRefreshing, setIsLogsRefreshing] = useState(false);
+  const [apiLowStockAlerts, setApiLowStockAlerts] = useState<any[]>([]);
+  const [apiDailyVariance, setApiDailyVariance] = useState<any[]>([]);
+  const [apiSupplierStock, setApiSupplierStock] = useState<any[]>([]);
+
+  const extractListPayload = (raw: any): any[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    return raw.items || raw.data || raw.rows || raw.records || raw.alerts || raw.materials || [];
+  };
 
   const fetchExtendedModules = async (projFilter?: number) => {
-    const [inwData, outData, dailyData, ledgData, otpData] = await Promise.all([
+    const [inwData, outData, dailyData, ledgData, otpData, stockSumRes, lowAlertsRes, dailyVarRes, supStockRes, movRegRes] = await Promise.all([
       materialService.listInwards(projFilter).catch(() => []),
       materialService.listOutwards(projFilter).catch(() => []),
       materialService.listDailyStocks(projFilter).catch(() => []),
       materialService.getStockLedger(projFilter).catch(() => []),
       materialService.listPendingCancellations().catch(() => []),
+      materialService.getInventoryStockSummaryReport({ project_id: projFilter }).catch(() => null),
+      materialService.getInventoryLowStockAlertsReport({ project_id: projFilter }).catch(() => null),
+      materialService.getInventoryDailyStockVarianceReport({ project_id: projFilter }).catch(() => null),
+      materialService.getInventorySupplierStockReport({ project_id: projFilter }).catch(() => null),
+      materialService.getInventoryMovementRegisterReport({ project_id: projFilter }).catch(() => null),
     ]);
     setInwards(inwData);
     setOutwards(outData);
     setDailyStocks(dailyData);
-    setLedgerEntries(ledgData);
+
+    const apiMovRows = extractListPayload(movRegRes);
+    if (ledgData.length === 0 && apiMovRows.length > 0) {
+      setLedgerEntries(
+        apiMovRows.map((r: any, idx: number) => ({
+          id: r.id || Date.now() + idx,
+          created_at: r.created_at || r.date || new Date().toISOString(),
+          project_id: Number(r.project_id || projFilter || 0),
+          material_id: Number(r.material_id || 0),
+          material_name: r.material_name || r.material?.name || "Material",
+          material_code: r.material_code,
+          unit: r.unit || r.unit_name || "Units",
+          tx_type: (r.tx_type || r.type || "INWARD").toUpperCase() as any,
+          ref_no: r.ref_no || r.reference_no || `MOV-${r.id || idx + 1}`,
+          in_qty: Number(r.in_qty ?? (r.type === "INWARD" ? r.quantity : 0) ?? 0),
+          out_qty: Number(r.out_qty ?? (r.type === "OUTWARD" ? r.quantity : 0) ?? 0),
+          running_balance: Number(r.running_balance ?? r.balance ?? 0),
+          rate: Number(r.rate ?? 0),
+          value: Number(r.value ?? r.total_value ?? 0),
+          user_name: r.user_name || r.created_by || "Admin",
+          notes: r.notes || "",
+        }))
+      );
+    } else {
+      setLedgerEntries(ledgData);
+    }
+
     setOtpRequests(otpData);
+    setApiLowStockAlerts(extractListPayload(lowAlertsRes));
+    setApiDailyVariance(extractListPayload(dailyVarRes));
+    setApiSupplierStock(extractListPayload(supStockRes));
+
+    if (stockSumRes && typeof stockSumRes === "object") {
+      const sObj = (stockSumRes as any).summary || stockSumRes;
+      if (sObj.total_stock_value !== undefined || sObj.total_materials !== undefined) {
+        setSummary((prev: any) => ({
+          ...(prev || {}),
+          ...sObj,
+        }));
+      }
+    }
   };
 
   const fetchData = async () => {
@@ -442,11 +495,21 @@ const InventoryPage = () => {
       let allLogs: any[] = [];
       if (logProjectId !== "all") {
         params.project_id = logProjectId;
-        const logsData = await materialService.getLogs(params);
-        allLogs = Array.isArray(logsData) ? logsData : [];
+        const [logsData, auditRes] = await Promise.all([
+          materialService.getLogs(params).catch(() => []),
+          materialService.getInventoryAuditTrailReport(params).catch(() => null),
+        ]);
+        const baseLogs = Array.isArray(logsData) ? logsData : [];
+        const auditRows = extractListPayload(auditRes);
+        allLogs = baseLogs.length > 0 ? baseLogs : auditRows;
       } else {
-        const results = await Promise.all(projectList.map((p) => materialService.getLogs({ ...params, project_id: p.id }).catch(() => [])));
-        allLogs = results.flat().filter((l) => l);
+        const [results, auditRes] = await Promise.all([
+          Promise.all(projectList.map((p) => materialService.getLogs({ ...params, project_id: p.id }).catch(() => []))),
+          materialService.getInventoryAuditTrailReport(params).catch(() => null),
+        ]);
+        const flatLogs = results.flat().filter((l) => l);
+        const auditRows = extractListPayload(auditRes);
+        allLogs = flatLogs.length > 0 ? flatLogs : auditRows;
       }
       setLogs(allLogs);
       setLogsPage(0);
@@ -737,7 +800,7 @@ const InventoryPage = () => {
     { id: "ledger", label: "Stock Ledger", icon: BookOpen },
     { id: "transfers", label: "Transfers", icon: Truck },
     { id: "suppliers", label: "Suppliers", icon: Truck },
-    { id: "reports", label: "Reports (9)", icon: BarChart3 },
+    { id: "reports", label: "Reports (12)", icon: BarChart3 },
     { id: "logs", label: "Audit Logs", icon: History },
   ];
 
@@ -894,31 +957,51 @@ const InventoryPage = () => {
         {/* Overview Alert Banner & Stats */}
         {activeTab === "overview" && (
           <div className="flex flex-col gap-6 mb-6">
-            {filteredInventory.filter((m) => Number(m.remaining_stock) <= Number(m.minimum_stock_level)).length > 0 && (
+            {(apiLowStockAlerts.length > 0 || filteredInventory.filter((m) => Number(m.remaining_stock) <= Number(m.minimum_stock_level)).length > 0) && (
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm">
                 <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                   <span className="text-rose-500 font-bold text-xl">⚠️</span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-bold text-rose-900 text-sm">Minimum Stock Threshold Alerts</h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-bold text-rose-900 text-sm">Minimum Stock Threshold Alerts</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInitialAdminReport("low_stock_alerts");
+                        setIsAdminReportsModalOpen(true);
+                      }}
+                      className="text-xs font-bold text-rose-700 underline hover:text-rose-900"
+                    >
+                      View Low Stock Alerts Report →
+                    </button>
+                  </div>
                   <p className="text-rose-700 text-xs mt-0.5 mb-2 font-medium">
                     Items below or equal to configured minimum threshold across sites (auto-clears upon inward replenishment):
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {filteredInventory
-                      .filter((m) => Number(m.remaining_stock) <= Number(m.minimum_stock_level))
-                      .map((lowItem) => (
-                        <button
-                          key={lowItem.id}
-                          onClick={() => setThresholdMaterial(lowItem)}
-                          className="bg-white border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold shadow-sm hover:bg-rose-100 transition-colors"
-                        >
-                          {lowItem.material_name}{" "}
-                          <span className="text-rose-500 font-semibold ml-1">
-                            ({lowItem.remaining_stock}/{lowItem.minimum_stock_level} @ {projectMap[lowItem.project_id] || "Site"})
-                          </span>
-                        </button>
-                      ))}
+                    {(apiLowStockAlerts.length > 0
+                      ? apiLowStockAlerts
+                      : filteredInventory.filter((m) => Number(m.remaining_stock) <= Number(m.minimum_stock_level))
+                    ).map((lowItem: any, idx: number) => (
+                      <button
+                        key={lowItem.id || lowItem.material_id || idx}
+                        onClick={() => {
+                          const matchedMat = inventory.find((m) => m.id === (lowItem.material_id || lowItem.id));
+                          if (matchedMat) setThresholdMaterial(matchedMat);
+                          else {
+                            setInitialAdminReport("low_stock_alerts");
+                            setIsAdminReportsModalOpen(true);
+                          }
+                        }}
+                        className="bg-white border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold shadow-sm hover:bg-rose-100 transition-colors"
+                      >
+                        {lowItem.material_name || lowItem.name}{" "}
+                        <span className="text-rose-500 font-semibold ml-1">
+                          ({lowItem.remaining_stock ?? lowItem.current_stock ?? 0}/{lowItem.minimum_stock_level ?? lowItem.min_threshold ?? 0} @ {lowItem.project_name || projectMap[lowItem.project_id] || "Site"})
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1046,6 +1129,15 @@ const InventoryPage = () => {
                 {activeTab === "daily_stock" && (
                   <>
                     <button
+                      onClick={() => {
+                        setInitialAdminReport("daily_stock_variance");
+                        setIsAdminReportsModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" /> Stock Variance{apiDailyVariance.length > 0 ? ` (${apiDailyVariance.length})` : ""}
+                    </button>
+                    <button
                       onClick={() => setIsBulkDailyStockOpen(true)}
                       className="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5"
                     >
@@ -1068,15 +1160,26 @@ const InventoryPage = () => {
                   </button>
                 )}
                 {activeTab === "suppliers" && (
-                  <button
-                    onClick={() => {
-                      setSelectedSupplier(null);
-                      setSupplierModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600"
-                  >
-                    + Add Supplier
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setInitialAdminReport("supplier_stock");
+                        setIsAdminReportsModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-1.5"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" /> Supplier Stock{apiSupplierStock.length > 0 ? ` (${apiSupplierStock.length})` : ""}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedSupplier(null);
+                        setSupplierModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600"
+                    >
+                      + Add Supplier
+                    </button>
+                  </div>
                 )}
                 {activeTab === "transfers" && (
                   <button
